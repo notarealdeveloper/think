@@ -19,6 +19,10 @@ from collections import defaultdict
 
 class Object:
 
+    """
+        An .object you can .think() about.
+    """
+
     type = object
 
     def __init__(self, object):
