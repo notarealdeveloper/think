@@ -32,17 +32,8 @@ class Object:
         self.attrs = {}
 
     def think(self):
-        """
-            This is not just self.thought.think().
-            This is a computation derived from that thought plus our top down knowledge.
-            That means it is the result of a computation that depends on learnables,
-            and we can take a gradient of it with respect to them.
-        """
         t = self.thought.think()
-        t0 = t
-        for attr, value in self.attrs.items():
-            _pre_get_check_attr(attr)
-            t = _hardset(t, attr, value)
+        t = self.apply_knowledge(t)
         return t
 
     def rethink(self, t):
@@ -50,6 +41,22 @@ class Object:
 
     def depends(self):
         return [self.thought]
+
+    def apply_knowledge(self, t):
+        """
+            This is not just self.thought.think().
+            This is a computation derived from that thought plus our top down knowledge.
+            That means it is the result of a computation that depends on learnables,
+            and we can take a gradient of it with respect to them.
+        """
+        t0 = t
+        for attr, value in self.attrs.items():
+            _pre_get_check_attr(attr)
+            ti = t
+            t = _hardset(t, attr, value)
+            print(f"think: knowledge that {self}.{attr} is {value} changed {fast.norm(t-ti)}")
+        # TODO: maybe unsupervised learning happens HERE?
+        return t
 
     @classmethod
     def _check(cls, object):
@@ -136,14 +143,16 @@ class Object:
         _pre_set_check_attr(Attr)
         value = _pre_set_promote_value(Attr, value)
         self._softset(Attr, value)
+        # self._hardset(Attr, value)
+        print(f"set being smart by not calling _hardset! "
+              f"we *want* the errors for training the entire system!")
         # TODO: REMEMBER THIS:
         # If we do the hardset here (or if we ever do a hardset directly on a learnable),
         # we don't "absorb" the knowledge. (i.e., we don't *understand how to produce it*.)
-        # instead, ONLY PERFORM HARDSETS ON THE OUTPUT OF COMPUTATIONS!
+        # * ONLY EVER PERFORM HARDSETS ON THE OUTPUT OF COMPUTATIONS!
+        # * NEVER PERFORM HARDSET DIRECTLY ON A LEARNABLE.
         # i.e., on things that are NOT directly "settable"
         # e.g., using the knowledge dictionary inside of get()
-        # self._hardset(Attr, value)
-        print(f"remember: set is being smart by not calling _hardset!")
         return self
 
     def softset(self, Attr, value):
@@ -218,13 +227,16 @@ class Number(Object):
     def __init__(self, object):
         self._check(object)
         self.object = object
+        self.attrs = {}
         # no per-instance thought
 
     def think(self):
         s = self.sense(self.object)
         b = self.origin.think()
         w = self.vector.think()
-        return b + s*w
+        t = b + s*w
+        t = self.apply_knowledge(t)
+        return t
 
     @classmethod
     def sense(cls, object):
@@ -274,7 +286,9 @@ class NumberType(Type):
         s = self.object.sense(number)
         b = self.object.origin.think()
         w = self.object.vector.think()
-        return b + s*w
+        t = b + s*w
+        t = self.apply_knowledge(t)
+        return t
 
     def project(self, object):
         basis = [self.origin, self.vector]
