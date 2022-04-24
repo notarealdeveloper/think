@@ -30,14 +30,8 @@ class Object:
         self.object = object
         self.thought = Thought()
 
-    def think(self, object=None):
-        if object is None:
-            return self.thought.think()
-        if hasattr(self, 'bind'):
-            return self.bind(object)
-        raise NotImplementedError(f"Type {self} has no binding for {object}")
-
-        self.thought = Thought()
+    def think(self):
+        return self.thought.think()
 
     def rethink(self, t):
         return self.thought.rethink(t)
@@ -135,7 +129,8 @@ class Number(Object):
         w = self.vector.think()
         return b + s*w
 
-    def sense(self, number):
+    @classmethod
+    def sense(cls, number):
         return number
 
 
@@ -172,8 +167,8 @@ class Integer(Type):
         return self.object(int)
 
     def think(self, int=0):
-        b = self.object.origin.think()
         s = self.object.sense(int)
+        b = self.object.origin.think()
         w = self.object.vector.think()
         return b + s*w
 
@@ -188,8 +183,8 @@ class Floating(Type):
         return self.object(float)
 
     def think(self, float=0.0):
-        b = self.object.origin.think()
         s = self.object.sense(float)
+        b = self.object.origin.think()
         w = self.object.vector.think()
         return b + s*w
 
@@ -392,4 +387,11 @@ if False:
         t    = to_thought(obj)
         v    = to_thought(value)
         return softset(ts, t, v)
+
+
+Age = Integer('Age')
+a = Age(42)
+Age.think()
+#Age.think(a)   # support this
+Age.think(42)
 
