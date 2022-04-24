@@ -4,7 +4,7 @@ import random
 import jax.random
 
 def gen_jax_prng_keys(seed=None):
-    seed = random.randint(0, 2**64)
+    seed = random.randint(0, 2**63)
     key = jax.random.PRNGKey(seed)
     while True:
         yield key
