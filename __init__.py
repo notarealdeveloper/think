@@ -2,4 +2,6 @@ import fast
 import slow
 
 from .thoughts import *
-from .types import *
+
+# IN PROGRESS: types.py
+# from .types import *
