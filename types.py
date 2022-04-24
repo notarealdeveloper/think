@@ -39,18 +39,26 @@ class Object:
     def depends(self):
         return [self.thought]
 
-    def _check(self, object):
-        if not isinstance(object, self.type):
-            raise TypeError(f"not a {self.type.__name__}: {object}")
+    @classmethod
+    def _check(cls, object):
+        if not isinstance(object, cls.type):
+            raise TypeError(f"not a {cls.type.__name__}: {object}")
 
-    @staticmethod
-    def least_base_type(*objects):
+    @classmethod
+    def _unwrap(cls, object):
+        while hasattr(object, 'object'):
+            object = object.object
+        return object
+
+    @classmethod
+    def least_base_type(cls, *objects):
         from functools import reduce
         from operator import and_
         from collections import Counter
         classes = [o.type for o in objects]
         return next(iter(reduce(and_, (Counter(cls.mro()) for cls in classes))))
 
+    @classmethod
     def __init_subclass__(cls):
         cls.thought = Thought()
 
@@ -130,8 +138,8 @@ class Number(Object):
         return b + s*w
 
     @classmethod
-    def sense(cls, number):
-        return number
+    def sense(cls, object):
+        return object
 
 
 class Int(Number):
@@ -162,11 +170,14 @@ class Integer(Type):
         if not issubclass(base, Number):
             raise TypeError(f"{name} has non-numeric base {base}")
         Type.__init__(self, name, base)
+        self.origin = self.object.origin
+        self.vector = self.object.vector
 
     def __call__(self, int):
         return self.object(int)
 
     def think(self, int=0):
+        int = self._unwrap(int)
         s = self.object.sense(int)
         b = self.object.origin.think()
         w = self.object.vector.think()
@@ -178,11 +189,14 @@ class Floating(Type):
         if not issubclass(base, Number):
             raise TypeError(f"{name} has non-numeric base {base}")
         Type.__init__(self, name, base)
+        self.origin = self.object.origin
+        self.vector = self.object.vector
 
     def __call__(self, float):
         return self.object(float)
 
     def think(self, float=0.0):
+        float = self._unwrap(float)
         s = self.object.sense(float)
         b = self.object.origin.think()
         w = self.object.vector.think()
@@ -199,11 +213,12 @@ class String(Type):
         return self.memory.get(str) or self.memory.setdefault(str, self.object(str))
 
     def think(self, str=None):
+        str = self._unwrap(str)
         T = self.thought.think()
         if str is None:
             return T
         t = self.memory[str].think()
-        return fast.mix(T, t)
+        return slow.mix([T, t])
 
 
 # ^ these guys are the ones who need invert methods!
@@ -333,11 +348,29 @@ GLD = Ticker('GLD')
 SLV = Ticker('SLV')
 
 
-Ticker.depends()
+# test that we can compute the thoughts manually in the way we expect
+Age = Integer('Age')
+Age.think()
+Age.think(42)
+Age.think(Age(42))
+a = (Age.origin.think() + 42*Age.vector.think())
+b = Age.think(42)
+assert jnp.allclose(a, b)
 
 
-# WHAT WE NEED TO STEAL:
-# FROM THE OLD BASIS TYPE:
+Ticker = String('Ticker')
+Ticker('SPY')
+Ticker.think()
+Ticker.think('SPY')
+Ticker.think(Ticker('SPY'))
+a = (Ticker.thought.think() + Ticker('SPY').thought.think())/jnp.sqrt(2)
+b = Ticker.think('SPY')
+assert jnp.allclose(a, b)
+
+
+
+
+# WHAT WE NEED TO STEAL FROM THE OLD BASIS TYPE:
 
 if False:
 
@@ -389,9 +422,4 @@ if False:
         return softset(ts, t, v)
 
 
-Age = Integer('Age')
-a = Age(42)
-Age.think()
-#Age.think(a)   # support this
-Age.think(42)
 
