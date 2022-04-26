@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
 import abc
+import weakref
+from functools import partial
+
 import jax
 import jax.random
 import jax.numpy as jnp
@@ -10,7 +13,6 @@ from jax import grad, value_and_grad
 from jax import tree_util
 from jax.tree_util import register_pytree_node, register_pytree_node_class
 from jax.tree_util import Partial
-from functools import partial
 
 import fast
 import slow
@@ -44,6 +46,7 @@ class Thought:
 
     def __init__(self, t=None):
         self._t = t if t is not None else new_thought()
+        self.__class__.instances.add(self)
 
     def think(self):
         return self._t
@@ -57,16 +60,31 @@ class Thought:
     def __repr__(self):
         return f"{self.__class__.__name__}({self._t})"
 
+    # for tracking memory usage
+    instances = weakref.WeakSet()
+
+    @classmethod
+    def gigabytes(cls):
+        bytes = 4*THOUGHT_DIM*len(cls.instances)
+        return bytes/(1024**3)
+
+    @classmethod
+    def active(cls):
+        return len(cls.instances)
+
 
 # types.py
 
 class Object:
+
+    instances = weakref.WeakSet()
 
     def __init__(self, object, thought=None):
         self.thought = Thought() if thought is None else thought
         self.object = object
         self.attrs = {}
         self.knowledge_generators = {}
+        self.__class__.instances.add(self)
 
     def think(self):
         t = self.thought.think()
@@ -109,9 +127,10 @@ class Object:
         if not isinstance(value, attr.object):
             value = attr(value)
         self.attrs[attr] = value
+        self.remember(attr, value)
         return self
 
-    def get(self, attr):
+    def get(self, attr, hard_or_soft='soft', feel_or_know='both'):
         if not isinstance(attr, Type):
             raise TypeError(f"get: attr {attr} is not an instance of Type")
         if attr not in self.attrs:
@@ -122,31 +141,54 @@ class Object:
 
         value = self.attrs[attr]
 
-        if (attr, value) not in self.knowledge_generators:
-            g = self.knowledge_generator(attr, value)
-            self.knowledge_generators[(attr, value)] = g
+        self.remember(attr, value)
 
         # now just give an answer
         # we'll learn more from the introspection in the background ;)
         feel = attr.project(self)
         know = attr.project(value)
-        return slow.mix([feel, know])
+
+        # handle feeling vs knowing
+        if feel_or_know == 'feel':
+            thought = feel
+        elif feel_or_know == 'know':
+            thought = know
+        elif feel_or_know == 'both':
+            thought = slow.mix([feel, know])
+        else:
+            raise ValueError(f"get: bad value for feel_or_know: {feel_or_know!r}")
+
+        if hard_or_soft == 'soft':
+            return thought
+        elif hard_or_soft == 'hard':
+            return attr.invert(thought)
+        else:
+            raise ValueError(f"get: bad value for hard_or_soft: {hard_or_soft!r}")
+
+    def hardget(self, attr, feel_or_know='both'):
+        return self.get(attr, hard_or_soft='hard', feel_or_know='both')
+
+    def remember(self, attr, value):
+        if (attr, value) not in self.knowledge_generators:
+            gen = self.knowledge_generator(attr, value)
+            self.knowledge_generators[(self, attr, value)] = gen
 
     def knowledge_generator(self, attr, value):
         """ Using differences between what we feel and what we know
             to train the entire system that produced both. """
         objects = [self, attr, value]
         project = Partial(attr.project)
-        knowledge_generator = make_train_loop(ugly_diffget, objects, project=project)
+        knowledge_generator = make_train_loop(objects, ugly_diffget, project=project)
         sentence = f"{self.object}.{attr} = {value.object}"
         print(f"new knowledge generator for sentence {sentence!r}")
         return knowledge_generator
 
     def learn(self, steps=100):
-        for attr, knowledge_generator in self.knowledge_generators.items():
+        for (self, attr, value), knowledge_generator in self.knowledge_generators.items():
             for step in range(steps):
                 allparams = next(knowledge_generator)
 
+            objects = (self, attr, value)
             for params, obj in zip(allparams, objects):
                 obj.rethink(params)
 
@@ -223,13 +265,13 @@ class Integer(Type):
     def params(self):
         return [self.b, self.w]
 
-    def invert(self, object, params=None):
+    def invert(self, object):
         params = params or self.deps()
-        t = object.think()
+        t = slow.to_thought(object)
         b = params['b']
         w = params['w']
-        coords = ugly_coordinates({'w': params['w']}, t-b)
-        return round(coords['w'])
+        coords = slow.coordinates({'w': params['w']}, t-b)
+        return coords['w']
 
     def project(self, object):
         s = self.unwrap(object)
@@ -260,9 +302,9 @@ class String(Type):
     def params(self):
         return [v.thought for v in self.memory.values()]
 
-    def invert(self, object, params=None):
-        params  = params or self.deps()
-        sims    = slow.pre_attention_l1(params, object)
+    def invert(self, object):
+        t       = slow.to_thought(object)
+        sims    = slow.pre_attention_l1(self.params(), object)
         idx     = int(jnp.argmax(sims))
         key     = list(params.keys())[idx]
         return key
@@ -357,7 +399,7 @@ def make_parameter(o):
         raise ValueError(f"No params", params)
 
 
-def make_train_loop(ugly_func, objects, **ugly_kwds):
+def make_train_loop(objects, ugly_func, **ugly_kwds):
 
     params = make_parameters(objects)
 
@@ -407,12 +449,15 @@ SPXL    = Ticker('SPXL')
 TQQQ    = Ticker('TQQQ')
 TMF     = Ticker('TMF')
 SOXL    = Ticker('SOXL')
+GLD     = Ticker('GLD')
+SLV     = Ticker('SLV')
 
 Sector  = String('Sector')
 MANY    = Sector('MANY')
 TECH    = Sector('TECH')
 SEMI    = Sector('SEMI')
 GOVT    = Sector('GOVT')
+NONE    = Sector('NONE')
 
 Asset   = String('Asset')
 STOCK   = Asset('STOCK')
@@ -450,21 +495,32 @@ SPXL.set(Levered, True)
 TQQQ.set(Sector, TECH)
 TQQQ.set(Asset, STOCK)
 TQQQ.set(ETF, True)
-TQQQ.set(Levered, False)
+TQQQ.set(Levered, True)
 
-SOXX.set(Sector, SEMI)
-SOXX.set(Asset, STOCK)
-SOXX.set(ETF, True)
-SOXX.set(Levered, False)
+SOXL.set(Sector, SEMI)
+SOXL.set(Asset, STOCK)
+SOXL.set(ETF, True)
+SOXL.set(Levered, True)
 
-TLT.set(Sector, GOVT)
-TLT.set(Asset, BOND)
-TLT.set(ETF, True)
-TLT.set(Levered, False)
+TMF.set(Sector, GOVT)
+TMF.set(Asset, BOND)
+TMF.set(ETF, True)
+TMF.set(Levered, True)
 
-SPY.get(Sector)
+GLD.set(Sector, NONE)
+GLD.set(Asset, COMM)
+GLD.set(ETF, True)
+GLD.set(Levered, False)
 
+SLV.set(Sector, NONE)
+SLV.set(Asset, COMM)
+SLV.set(ETF, True)
+SLV.set(Levered, False)
+
+SPY.get(Sector, 'hard')
 Ticker.invert(SPY)
 Sector.invert(SPY)
 
+#for object in Object.instances:
+#    object.learn()
 
