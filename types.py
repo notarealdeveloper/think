@@ -508,19 +508,19 @@ if False:
     ###
 
     def coordinates(self, obj):
-        t  = to_thought(obj)
+        t  = slow.to_vector(obj)
         ts = self.stack()
         coords = jnp.squeeze(coordinates(ts, t), axis=-1)
         return Dict(zip(self.keys(), coords))
 
     def attention(self, obj, norm='l1'):
-        t    = to_thought(obj)
+        t    = slow.to_vector(obj)
         ts   = self.stack()
         sims = attention(ts, t, norm=norm)
         return Dict(zip(self.keys(), sims))
 
     def most_similar(self, obj, norm='l1'):
-        t    = to_thought(obj)
+        t    = slow.to_vector(obj)
         ts   = self.stack()
         sims = attention(ts, t, norm=norm)
         idx  = int(jnp.argmax(sims))
@@ -528,19 +528,19 @@ if False:
         return key
 
     def solve(self, obj):
-        t = to_thought(obj)
+        t = slow.to_vector(obj)
         return jnp.linalg.lstsq(self.stack().T, t)
 
     def hardset(self, obj, value):
         ts   = self.stack()
-        t    = to_thought(obj)
-        v    = to_thought(value)
+        t    = slow.to_vector(obj)
+        v    = slow.to_vector(value)
         return hardset(ts, t, v)
 
     def softset(self, obj, value):
         ts   = self.stack()
-        t    = to_thought(obj)
-        v    = to_thought(value)
+        t    = slow.to_vector(obj)
+        v    = slow.to_vector(value)
         return softset(ts, t, v)
 
 
