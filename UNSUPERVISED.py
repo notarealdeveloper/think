@@ -20,7 +20,7 @@ import slow
 
 # random.py
 
-THOUGHT_DIM = 1024
+THOUGHT_DIM = 100
 
 class State:
     def __init__(self, key=42):
@@ -40,6 +40,11 @@ STATE = State()
 def new_thought():
     denominator = jnp.sqrt(THOUGHT_DIM)
     return STATE.normal([THOUGHT_DIM])/denominator
+
+def unwrap(object):
+    while hasattr(object, 'object'):
+        object = object.object
+    return object
 
 
 class Thought:
@@ -88,7 +93,7 @@ class Object:
 
     def think(self):
         t = self.thought.think()
-        t = self.apply_knowledge(t)
+        # t = self.apply_knowledge(t)    # holy shit this HURTS! NEVER CALL HARDSET!!!
         return t
 
     def apply_knowledge(self, t):
@@ -109,7 +114,7 @@ class Object:
             old = param.think()
             new = t
             param.rethink(new)
-            print(f"{self} rethinking parameter, delta is:", fast.dist(old, new))
+            #print(f"{self} rethinking parameter, delta is:", fast.dist(old, new))
 
         return self.thought.rethink(t)
 
@@ -128,6 +133,12 @@ class Object:
             value = attr(value)
         self.attrs[attr] = value
         self.remember(attr, value)
+
+        # let's try a hardset and see how it helps learning
+        #t = self.think()
+        #t = slow.hardset(attr, t, value)
+        #self.thought.rethink(t)
+
         return self
 
     def get(self, attr, hard_or_soft='soft', feel_or_know='both'):
@@ -169,7 +180,7 @@ class Object:
         return self.get(attr, hard_or_soft='hard', feel_or_know='both')
 
     def remember(self, attr, value):
-        if (attr, value) not in self.knowledge_generators:
+        if (self, attr, value) not in self.knowledge_generators:
             gen = self.knowledge_generator(attr, value)
             self.knowledge_generators[(self, attr, value)] = gen
 
@@ -179,7 +190,7 @@ class Object:
         objects = [self, attr, value]
         project = Partial(attr.project)
         knowledge_generator = make_train_loop(objects, ugly_diffget, project=project)
-        sentence = f"{self.object}.{attr} = {value.object}"
+        sentence = format_sentence(*objects)
         print(f"new knowledge generator for sentence {sentence!r}")
         return knowledge_generator
 
@@ -274,7 +285,7 @@ class Integer(Type):
         return coords['w']
 
     def project(self, object):
-        s = self.unwrap(object)
+        s = unwrap(object)
         return self.ugly_project(self.deps(), s)
 
     @staticmethod
@@ -296,17 +307,16 @@ class String(Type):
         self.memory[str] = o
         return o
 
-    def deps(self):
-        return {k:v.thought for k,v in self.memory.items()}
-
     def params(self):
         return [v.thought for v in self.memory.values()]
 
     def invert(self, object):
+        keys    = [k for k,v in self.memory.items()]
+        vals    = [v.thought for k,v in self.memory.items()]
         t       = slow.to_thought(object)
-        sims    = slow.pre_attention_l1(self.params(), object)
+        sims    = slow.pre_attention_l1(vals, object)
         idx     = int(jnp.argmax(sims))
-        key     = list(params.keys())[idx]
+        key     = list(keys)[idx]
         return key
 
     def project(self, object, params=None):
@@ -370,6 +380,10 @@ def tree_think(o):
     raise TypeError(o)
 
 
+def format_sentence(obj, attr, value):
+    return f"{obj.object}.{attr} = {value.object}"
+
+
 def ugly_diffget(params, project):
     """
         Difference between your top-down and bottom-up knowledge.
@@ -403,6 +417,7 @@ def make_train_loop(objects, ugly_func, **ugly_kwds):
 
     params = make_parameters(objects)
 
+    import itertools
     from jax.experimental import optimizers
 
     ugly_func = partial(ugly_func, **ugly_kwds)
@@ -410,28 +425,32 @@ def make_train_loop(objects, ugly_func, **ugly_kwds):
     grad_fn = value_and_grad(loss_fn)
     params = tree_think(params)
 
+    obj, attr, value = objects
+    sentence = format_sentence(obj, attr, value)
+
     def new_adam(step_size):
         opt_init, opt_update, get_params = optimizers.adam(step_size)
         return opt_init, opt_update, get_params
 
     def knowledge_generator(params):
-        step_size = 1e-2
+        step_size = 1e-3
         opt_init, opt_update, get_params = new_adam(step_size)
         opt_state = opt_init(params)
         """ Note: this does the gradient updates for us, and yields the new parameters.
             It is up to us (on the outside) when we want to update them.
         """
-        while True:
+        for round in itertools.count():
             loss, grads = grad_fn(params)
             grads = tree_think(grads)
             opt_state = opt_update(0, grads, opt_state)
             params = get_params(opt_state)
             request = yield params
-            print(f"loss is {loss}")
+            #if round % 20 == 0:
+            print(f"{sentence}: loss is {loss}")
             if request is not None:
                 opt_init, opt_update, get_params = new_adam(request)
                 opt_state = opt_init(params)
-                print(f"reset step_size to {request}")
+                #print(f"reset step_size to {request}")
 
     g = knowledge_generator(params)
     g.send(None)
@@ -521,6 +540,39 @@ SPY.get(Sector, 'hard')
 Ticker.invert(SPY)
 Sector.invert(SPY)
 
-#for object in Object.instances:
-#    object.learn()
+
+stats = {}
+frac = 0
+round = 0
+while frac < 1:
+    total = 0
+    correct = 0
+    for obj in Object.instances:
+
+        if round == 10:
+            for g in obj.knowledge_generators.values():
+                g.send(1e-4)
+        if round == 30:
+            for g in obj.knowledge_generators.values():
+                g.send(1e-5)
+
+        for attr in obj.attrs.keys():
+
+            feel = obj.get(attr, 'hard', 'feel')
+            know = unwrap(obj.attrs[attr])
+
+            if feel == know:
+                correct += 1
+            total += 1
+
+            # * unsupervised!
+            # * no batching!
+            # * one training step per (obj, attr, value) pair each round!
+            obj.learn(100)
+
+    frac = correct/total
+    stats[round] = frac
+    print(f"round {round}: success of objects encoding their attributes: {frac}")
+    round += 1
+    time.sleep(1)
 
