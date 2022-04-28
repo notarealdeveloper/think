@@ -41,5 +41,5 @@ class Thought:
         return f"{self.__class__.__name__}({self._t})"
 
     def __array__(self):
-        return self._t
+        return self.think()
 
