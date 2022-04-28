@@ -2,7 +2,7 @@
 
 __all__ = [
     'Thought',
-    'set_thought_dim',
+    'thought_dim',
 ]
 
 import jax.numpy as jnp
@@ -17,9 +17,11 @@ def new_thought():
     denominator = jnp.sqrt(THOUGHT_DIM)
     return STATE.normal([THOUGHT_DIM])/denominator
 
-def set_thought_dim(n):
+def thought_dim(n=None):
     global THOUGHT_DIM
-    THOUGHT_DIM = n
+    if n is not None:
+        THOUGHT_DIM = n
+    return THOUGHT_DIM
 
 class Thought:
 
