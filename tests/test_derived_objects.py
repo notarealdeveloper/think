@@ -2,6 +2,7 @@
 
 import pytest
 
+from think.types import meta
 from think.types import BoolType, StrType, IntType, FloatType
 
 Alive   = BoolType('Alive')
@@ -45,9 +46,9 @@ def test_distinct_values_of_the_same_derived_type_are_distinct():
     assert Weight(42.69) != Weight(69.42)
 
 def test_that_the_type_of_derived_instances_is_their_class():
-    assert type(Alive(True)) is Alive
-    assert type(Name('Dave')) is Name
-    assert type(Age(42)) is Age
-    assert type(Weight(42.69)) is Weight
+    assert meta(Alive(True)) is Alive
+    assert meta(Name('Dave')) is Name
+    assert meta(Age(42)) is Age
+    assert meta(Weight(42.69)) is Weight
 
 

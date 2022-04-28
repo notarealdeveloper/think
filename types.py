@@ -11,6 +11,8 @@ __all__ = [
 ]
 
 import abc
+import types
+import builtins
 import jax.numpy as jnp
 
 import fast
@@ -21,20 +23,34 @@ from think import Bool, Str, Int, Float
 
 TYPES = {}
 
-class Type(type, Object):
+def meta(obj):
+    # me need a way of checking who values came from
+    # without the neverending headache of dealing with
+    # actual metaclasses, which aren't quite there.
+    try:
+        return obj.meta
+    except:
+        return type(obj)
+
+class Type(Object):
 
     type = type
     base = Object
 
     def __new__(cls, name, base=None, t=None):
 
-        if base is None:
+        if not base:
             base = cls.base
+
+        if isinstance(base, tuple) and base:
+            assert len(base) == 1
+            [base] = base
 
         if not isinstance(name, str):
             raise TypeError(f"Type's name must be a str")
 
-        if not isinstance(base, type):
+        if not isinstance(base, builtins.type):
+            breakpoint()
             raise TypeError(f"Type's base argument must be a class: {base}")
 
         if not issubclass(base, Object):
@@ -45,17 +61,23 @@ class Type(type, Object):
         except:
             pass
 
-        self = type.__new__(cls, name, (base,), {})
+        object = type(name, (base,), {})
+        self = builtins.object.__new__(cls) #Object.__new__(cls, object)
         self.name = name
         self.base = base
-        self.object = self
+        self.object = object
         self.attrs   = {}
         self.thought = Thought(t)
         TYPES[(cls, name, base)] = self
         return self
 
-    def __init__(self, name, base=Object, t=None):
+    def __init__(self, name, base=None, t=None):
         pass
+
+    def __call__(self, object):
+        obj = self.object(object)
+        obj.meta = self # this isn't general enough.
+        return obj
 
     def __repr__(self):
         return f"{self.name}"

@@ -18,6 +18,7 @@ import numbers
 import builtins
 
 import slow
+import think
 from think import Thought
 
 OBJECTS = {}
@@ -52,10 +53,10 @@ class Object:
     def rethink(self, t):
         return self.thought.rethink(t)
 
-    def set(self, attr, value, how='soft'):
+    def set(self, attr, value, how='both'):
 
-        attr  = self._ensure_attr_is_type(attr)
-        value = attr._ensure_value_is_object(value)
+        attr  = self._ensure_attr_is_type_instance(attr)
+        value = attr._ensure_value_is_object_instance(value)
 
         if how == 'soft':
             self.attrs[attr] = value
@@ -65,8 +66,9 @@ class Object:
             self.rethink(t)
 
         elif how == 'both':
-            self.hardset(attr, value)
-            self.softset(attr, value)
+            self.attrs[attr] = value
+            t = slow.hardset(attr, self, value)
+            self.rethink(t)
         else:
             raise ValueError(f"how: {how!r}")
 
@@ -74,7 +76,7 @@ class Object:
 
     def get(self, attr, how='soft'):
 
-        attr = self._ensure_attr_is_type(attr)
+        attr = self._ensure_attr_is_type_instance(attr)
 
         if attr not in self.attrs:
             # feeling
@@ -93,13 +95,13 @@ class Object:
         else:
             raise ValueError(f"how: {how!r}")
 
-    def _ensure_attr_is_type(self, attr):
-        if not isinstance(attr, Type):
+    def _ensure_attr_is_type_instance(self, attr):
+        if not isinstance(attr, think.Type):
             raise TypeError(attr)
         return attr
 
-    def _ensure_value_is_object(self, value):
-        if not isinstance(value, Object):
+    def _ensure_value_is_object_instance(self, value):
+        if not isinstance(value, think.Object):
             value = self(value)
         return value
 
