@@ -76,47 +76,51 @@ class Object:
     def rethink(self, t):
         return self.thought.rethink(t)
 
-    def set(self, attr, value, how='both'):
-
-        attr  = self._ensure_attr_is_type_instance(attr)
-        value = attr._ensure_value_is_object_instance(value)
-
-        if how == 'soft':
-            self.attrs[attr] = value
-
-        elif how == 'hard':
-            t = slow.hardset(attr, self, value)
-            self.rethink(t)
-
-        elif how == 'both':
-            self.attrs[attr] = value
-            t = slow.hardset(attr, self, value)
-            self.rethink(t)
-        else:
-            raise ValueError(f"how: {how!r}")
-
+    def setfeel(self, attr, value):
+        t = slow.setattr(attr, self, value)
+        self.rethink(t)
         return self
 
-    def get(self, attr, how='soft'):
+    def setknow(self, attr, value):
+        self.attrs[attr] = value
+        return self
 
+    def set(self, attr, value):
+        attr  = self._ensure_attr_is_type_instance(attr)
+        value = attr._ensure_value_is_object_instance(value)
+        self.setfeel(attr, value)
+        self.setknow(attr, value)
+        return self
+
+    def getfeel(self, attr):
+        return attr.project(self)
+
+    def getknow(self, attr):
+        return self.attrs.get(attr, Object(None))
+
+    def get(self, attr, hard=False):
         attr = self._ensure_attr_is_type_instance(attr)
+        feel = self.getfeel(attr)
+        know = self.getknow(attr)
 
-        if attr not in self.attrs:
-            # feeling
-            thought = attr.project(self)
+        if not know:
+            thought = feel
         else:
-            # feeling and knowing
-            value = self.attrs[attr]
-            feel = attr.project(self)
-            know = attr.project(value)
-            thought = slow.mix([feel, know])
+            thought = fast.mix([feel, know])
 
-        if how == 'soft':
-            return thought
-        elif how == 'hard':
+        if hard:
             return attr.invert(thought)
         else:
-            raise ValueError(f"how: {how!r}")
+            return thought
+
+    def __array__(self):
+        return self.think()
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.object})"
+
+    def __bool__(self):
+        return self.object is not None
 
     def _ensure_attr_is_type_instance(self, attr):
         if not isinstance(attr, Type):
@@ -127,12 +131,6 @@ class Object:
         if not isinstance(value, Object):
             value = self(value)
         return value
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}({self.object})"
-
-    def __array__(self):
-        return self.think()
 
     def unwrap(self):
         while hasattr(self, 'object'):
