@@ -1,7 +1,5 @@
-import fast
-import slow
+#!/usr/bin/env python3
 
 from .thoughts import *
-
-# IN PROGRESS: types.py
-# from .types import *
+from .objects import *
+from .types import *

@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 
-import random
 import jax.random
 
-def gen_jax_prng_keys(seed=None):
-    seed = random.randint(0, 2**63)
-    key = jax.random.PRNGKey(seed)
-    while True:
-        yield key
+class State:
+    def __init__(self, key=42):
+        self.key = jax.random.PRNGKey(key)
+    def split(self, key):
         key, subkey = jax.random.split(key)
+        return key, subkey
+    def normal(self, shape):
+        self.key, subkey = self.split(self.key)
+        return jax.random.normal(subkey, shape)
 
-def random_normal(shape):
-    key = next(JAX_PRNG_KEYS)
-    return jax.random.normal(key, shape)
-
-JAX_PRNG_KEYS = gen_jax_prng_keys()
