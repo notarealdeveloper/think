@@ -136,6 +136,8 @@ class Object:
         return self.object is not None
 
     def _ensure_attr_is_object_subclass(self, attr):
+        if not isinstance(attr, type):
+            raise TypeError(attr)
         if not issubclass(attr, Object):
             raise TypeError(attr)
         return attr
