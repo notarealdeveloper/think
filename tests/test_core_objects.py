@@ -4,7 +4,6 @@ import pytest
 
 from think import Bool, Int, Str, Float
 
-
 def test_bool_idempotence():
     assert Bool(True) is Bool(True)
 
