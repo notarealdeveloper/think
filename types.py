@@ -45,22 +45,17 @@ class Type(type, Object):
         except:
             pass
 
-        #self = object.__new__(cls)
-        #self.object = type(name, (base,), {})
-        self = type.__new__(cls, name, (), {})
-        self.object = type(name, (base,), {})
-        self.attrs   = {}
-        self.thought = Thought(t)
+        self = type.__new__(cls, name, (base,), {})
         self.name = name
         self.base = base
+        self.object = self
+        self.attrs   = {}
+        self.thought = Thought(t)
         TYPES[(cls, name, base)] = self
         return self
 
-    def __init__(self, name, base=Object):
+    def __init__(self, name, base=Object, t=None):
         pass
-
-    def __call__(self, object):
-        return self.object(object)
 
     def __repr__(self):
         return f"{self.name}"
