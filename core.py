@@ -136,14 +136,12 @@ class Object:
         return self.object is not None
 
     def _ensure_attr_is_object_subclass(self, attr):
-        if not isinstance(attr, type):
-            raise TypeError(attr)
-        if not issubclass(attr, Object):
+        if not is_subclass_of_object(attr):
             raise TypeError(attr)
         return attr
 
     def _ensure_value_is_attr_instance(self, attr, value):
-        if not isinstance(value, Object):
+        if not is_instance_of_object(value):
             value = attr(value)
         elif value.type is not attr:
             # experimental, e.g., Dirname(Pathname('/etc/security'))
@@ -155,9 +153,12 @@ class Object:
             self = self.object
         return self
 
-    @classmethod
-    def project(cls, object):
-        return cls(object)
+
+def is_instance_of_object(o):
+    return isinstance(o, Object)
+
+def is_subclass_of_object(o):
+    return is_instance_of_object(o) and (o.type is Type)
 
 
 # types.py
