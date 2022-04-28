@@ -3,11 +3,12 @@
 __all__ = [
     'Thought',
     'thought_dim',
+    'new_thought',
 ]
 
 import jax.numpy as jnp
 
-from think.random import State
+from think.internals import State
 
 STATE = State()
 

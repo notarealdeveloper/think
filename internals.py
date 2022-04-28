@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# random
+
 import jax.random
 
 class State:
@@ -11,4 +13,19 @@ class State:
     def normal(self, shape):
         self.key, subkey = self.split(self.key)
         return jax.random.normal(subkey, shape)
+
+
+# descriptors
+
+class hybridmethod:
+
+    def __init__(self, func):
+        self.func = func
+
+    def __get__(self, object, type):
+        if object is None:
+            return self.func.__get__(type)
+        else:
+            return self.func.__get__(object)
+
 

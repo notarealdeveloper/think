@@ -33,7 +33,7 @@ import builtins
 import fast
 import slow
 from think import Thought
-
+from think.internals import hybridmethod
 
 OBJECTS = {}
 TYPES   = {}
@@ -70,24 +70,28 @@ class Object:
         cls.attrs   = {}
         cls.thought = Thought()
 
+    @hybridmethod
     def think(self):
         return self.thought.think()
 
+    @hybridmethod
     def rethink(self, t):
         return self.thought.rethink(t)
 
     def setfeel(self, attr, value):
+        value = self._ensure_value_is_attr_instance(attr, value)
         t = slow.setattr(attr, self, value)
         self.rethink(t)
         return self
 
     def setknow(self, attr, value):
+        value = self._ensure_value_is_attr_instance(attr, value)
         self.attrs[attr] = value
         return self
 
     def set(self, attr, value):
-        attr  = self._ensure_attr_is_type_instance(attr)
-        value = attr._ensure_value_is_object_instance(value)
+        attr  = self._ensure_attr_is_object_subclass(attr)
+        value = self._ensure_value_is_attr_instance(attr, value)
         self.setfeel(attr, value)
         self.setknow(attr, value)
         return self
@@ -98,20 +102,29 @@ class Object:
     def getknow(self, attr):
         return self.attrs.get(attr, Object(None))
 
-    def get(self, attr, hard=False):
-        attr = self._ensure_attr_is_type_instance(attr)
+    def softget(self, attr):
+        attr = self._ensure_attr_is_object_subclass(attr)
         feel = self.getfeel(attr)
         know = self.getknow(attr)
-
         if not know:
             thought = feel
         else:
-            thought = fast.mix([feel, know])
+            thought = slow.mix([feel, know])
+        return thought
 
-        if hard:
-            return attr.invert(thought)
+    def hardget(self, attr):
+        thought = self.softget(attr)
+        return attr.invert(thought)
+
+    def get(self, attr, how='nice'):
+        if how == 'hard':
+            return self.hardget(attr)
+        elif how == 'soft':
+            return self.softget(attr)
+        elif how == 'nice':
+            return attr(self.hardget(attr))
         else:
-            return thought
+            raise TypeError(f"how: {how!r}")
 
     def __array__(self):
         return self.think()
@@ -122,20 +135,28 @@ class Object:
     def __bool__(self):
         return self.object is not None
 
-    def _ensure_attr_is_type_instance(self, attr):
-        if not isinstance(attr, Type):
+    def _ensure_attr_is_object_subclass(self, attr):
+        if not issubclass(attr, Object):
             raise TypeError(attr)
         return attr
 
-    def _ensure_value_is_object_instance(self, value):
+    def _ensure_value_is_attr_instance(self, attr, value):
         if not isinstance(value, Object):
-            value = self(value)
+            value = attr(value)
+        elif value.type is not attr:
+            # experimental, e.g., Dirname(Pathname('/etc/security'))
+            value = attr(value.unwrap())
         return value
 
     def unwrap(self):
         while hasattr(self, 'object'):
             self = self.object
         return self
+
+    @classmethod
+    def project(cls, object):
+        return cls(object)
+
 
 # types.py
 
