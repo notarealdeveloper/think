@@ -96,35 +96,39 @@ class Object:
         self.setknow(attr, value)
         return self
 
-    def getfeel(self, attr):
-        return attr.project(self)
+    def getfeel(self, attr, hard=False):
+        thought = attr.project(self)
+        return thought if not hard else attr.invert(thought)
 
-    def getknow(self, attr):
-        return self.attrs.get(attr, Object(None))
+    def getknow(self, attr, hard=False):
+        value = self.attrs.get(attr, Object(None))
+        thought = attr.project(value)
+        return thought if not hard else attr.invert(thought)
 
-    def softget(self, attr):
-        attr = self._ensure_attr_is_object_subclass(attr)
+    def getboth(self, attr, hard=False):
         feel = self.getfeel(attr)
         know = self.getknow(attr)
         if not know:
             thought = feel
         else:
             thought = slow.mix([feel, know])
-        return thought
+        return thought if not hard else attr.invert(thought)
 
-    def hardget(self, attr):
-        thought = self.softget(attr)
-        return attr.invert(thought)
-
-    def get(self, attr, how='nice'):
-        if how == 'hard':
-            return self.hardget(attr)
-        elif how == 'soft':
-            return self.softget(attr)
-        elif how == 'nice':
-            return attr(self.hardget(attr))
+    def get(self, attr, how='feel', hard=True):
+        attr = self._ensure_attr_is_object_subclass(attr)
+        if how == 'feel':
+            return self.getfeel(attr, hard=hard)
+        elif how == 'know':
+            return self.getknow(attr, hard=hard)
+        elif how == 'both':
+            return self.getboth(attr, hard=hard)
         else:
-            raise TypeError(f"how: {how!r}")
+            raise ValueError(f"how: {how!r}")
+
+        if hard:
+            return attr.invert(thought)
+        else:
+            return thought
 
     def __array__(self):
         return self.think()
@@ -145,7 +149,8 @@ class Object:
             value = attr(value)
         elif value.type is not attr:
             # experimental, e.g., Dirname(Pathname('/etc/security'))
-            value = attr(value.unwrap())
+            # value = attr(value.unwrap())
+            value = value.unwrap()
         return value
 
     def unwrap(self):
