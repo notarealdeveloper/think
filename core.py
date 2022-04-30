@@ -101,8 +101,7 @@ class Object:
         return thought if not hard else attr.invert(thought)
 
     def getknow(self, attr, hard=False):
-        value = self.attrs.get(attr, Object(None))
-        thought = attr.project(value)
+        thought = self.attrs.get(attr, Object(None))
         return thought if not hard else attr.invert(thought)
 
     def getboth(self, attr, hard=False):
