@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+__all__ = [
+    'hybridmethod',
+]
+
 # random
 
 import jax.random
