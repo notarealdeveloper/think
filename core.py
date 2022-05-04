@@ -177,6 +177,10 @@ class Object(metaclass=T):
             self = self.object
         return self
 
+    @classmethod
+    def ensure_unwrapped(cls, object):
+        return cls.unwrap(object)
+
 
 def is_instance_of_object(o):
     return isinstance(o, Object)
