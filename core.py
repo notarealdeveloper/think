@@ -97,7 +97,8 @@ class Object(metaclass=T):
 
     @hybridmethod
     def rethink(self, t):
-        return self.thought.rethink(t)
+        self.thought.rethink(t)
+        return self
 
     def setfeel(self, attr, value):
         value = self._ensure_value_is_attr_instance(attr, value)
