@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from .log import *
 from .internals import *
 from .thoughts import *
 from .core import *
