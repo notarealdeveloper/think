@@ -5,6 +5,7 @@ __all__ = [
 ]
 
 import os
+import glob
 import pickle
 from collections import Counter
 
@@ -15,7 +16,7 @@ from think import Object, hybridmethod
 class Memory(Object):
 
     def __init_subclass__(cls):
-        cls.total = 0
+        cls.num_contexts = 0
         cls.memory = {}
         cls.counts = Counter()
         cls.long_term_memory = cls.__qualname__
@@ -25,23 +26,39 @@ class Memory(Object):
             return cls.memory[obj]
         self = super().__new__(cls, obj)
         self.counts = Counter()
-        self.total = 0
+        self.num_contexts = 0
         cls.memory[obj] = self
         return self
 
     @hybridmethod
-    def connect(self, context):
-        self.total += 1
-        for other in context:
+    def connect(self, others):
+        self.num_contexts += 1
+        for other in others:
             self.counts[other] += 1
 
     @hybridmethod
+    def count(self, object):
+        return self.counts[object]
+
+    @hybridmethod
+    def total(self):
+        return sum(self.counts.values())
+
+    @hybridmethod
     def prob(self, obj):
-        return self.counts[obj]/self.total
+        return self.count(obj)/self.num_contexts
 
     @hybridmethod
     def probs(self):
-        return Counter({k:v/self.total for k,v in self.counts.items()})
+        return Counter({k:self.prob(v) for k,v in self.counts.items()})
+
+    @classmethod
+    def probs_given(cls, b):
+        return cls(b).probs()
+
+    @classmethod
+    def prob_a_given_b(cls, a, b):
+        return cls(b).prob(a)
 
     def __getitem__(self, item):
         return self.counts[item]
@@ -95,9 +112,9 @@ class Memory(Object):
         return self
 
     def most_similar(self, k=10):
-        others = __class__.memory.values()
+        others = self.__class__.memory.values()
         if isinstance(self, str):
-            self = __class__(self)
+            self = self.__class__(self)
             t_self = self.think()
         elif isinstance(self, __class__):
             t_self = self.think()
