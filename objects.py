@@ -31,9 +31,9 @@ class Memory(Object):
 
     @hybridmethod
     def connect(self, context):
+        self.total += 1
         for other in context:
             self.counts[other] += 1
-            self.total += 1
 
     @hybridmethod
     def prob(self, obj):
