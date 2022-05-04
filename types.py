@@ -22,7 +22,6 @@ class EnumType(Type):
             return cls.memory[str]
         self = cls.object(str, *args, **kwds)
         cls.memory[str] = self
-        # self.set(cls, self)
         return self
 
     def params(cls):
