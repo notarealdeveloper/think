@@ -2,10 +2,14 @@
 
 __all__ = [
     'EnumType',
+    'BoolType',
+    'StrType',
+    'IntType',
+    'FloatType',
 ]
 
 import slow
-from think import Type
+from think import Bool, Str, Int, Float, Type
 import jax.numpy as jnp
 
 class EnumType(Type):
@@ -49,4 +53,18 @@ class EnumType(Type):
     def __array__(cls):
         vects = [slow.to_vector(o) for o in cls.params()]
         return jnp.stack(vects, axis=0)
+
+
+
+class BoolType(EnumType):
+    base = Bool
+
+class StrType(EnumType):
+    base = Str
+
+class IntType(EnumType):
+    base = Int
+
+class FloatType(EnumType):
+    base = Float
 

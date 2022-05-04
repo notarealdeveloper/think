@@ -35,6 +35,7 @@ import fast
 import slow
 from think import Thought
 from think.internals import hybridmethod
+from think.ops import Add, Sub, Mul, Div
 
 OBJECTS = {}
 TYPES   = {}
@@ -249,6 +250,18 @@ class Type(Object):
     def __call__(self, object):
         return self.object(object)
 
+    def __add__(self, object):
+        return Add(self, object)
+
+    def __sub__(self, object):
+        return Sub(self, object)
+
+    def __mul__(self, object):
+        return Mul(self, object)
+
+    def __truediv__(self, object):
+        return Div(self, object)
+
     def __repr__(self):
         return f"{self.name}"
 
@@ -304,5 +317,4 @@ class IntType(Type):
 
 class FloatType(Type):
     base = Float
-
 
