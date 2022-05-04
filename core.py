@@ -27,6 +27,7 @@ __all__ += [
 ]
 
 import abc
+import logging
 import numbers
 import builtins
 
@@ -38,7 +39,26 @@ from think.internals import hybridmethod
 OBJECTS = {}
 TYPES   = {}
 
-class Object:
+logger = logging.getLogger(__name__)
+
+
+class T(type):
+
+    def __new__(meta, name, bases, dict):
+        logger.debug(f"T.__new__: {meta}, {name}, {bases}, {dict}")
+        cls = super().__new__(meta, name, bases, dict)
+        return cls
+
+    def __init__(cls, name, bases, dict):
+        logger.debug(f"T.__init__: {cls}, {name}, {bases}, {dict}")
+        super().__init__(name, bases, dict)
+
+    def __call__(cls, *args, **kwds):
+        logger.debug(f"T.__call__: {cls}, {args}, {kwds}")
+        return super().__call__(*args, **kwds)
+
+
+class Object(metaclass=T):
 
     object = object
 
