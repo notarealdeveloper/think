@@ -245,9 +245,10 @@ class Object(metaclass=Type):
         )
 
     def think(self):
-        T = type(self).think()
-        t = self.thought.think()
-        return slow.mix([T, t])
+        #T = type(self).think()
+        #t = self.thought.think()
+        #return slow.mix([T, t])
+        return self.thought.think()
 
     def rethink(self, t):
         self.thought.rethink(t)
