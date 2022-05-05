@@ -62,8 +62,8 @@ class Year(Str, metaclass=EnumType):
             self.D: d,
             self.Y: y,
         }
-        thoughts = [attr(value).thought for attr, value in attrs.items()]
-        self.thought = Thought(slow.mix(thoughts))
+        #thoughts = [attr(value).thought for attr, value in attrs.items()]
+        #self.thought = Thought(slow.mix(thoughts))
         self.attrs = attrs
         for attr, value in self.attrs.items():
             self.setfeel(attr, value)
@@ -100,8 +100,8 @@ class Date(Str):
         else:
             raise ValueError(date)
         self.attrs = attrs
-        thoughts = [attr(value).thought for attr, value in attrs.items()]
-        self.thought = Thought(slow.mix(thoughts))
+        #thoughts = [attr(value).thought for attr, value in attrs.items()]
+        #self.thought = Thought(slow.mix(thoughts))
         for attr, value in self.attrs.items():
             self.setfeel(attr, value)
 

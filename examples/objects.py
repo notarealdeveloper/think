@@ -4,6 +4,14 @@ from slow import cos
 from think.core import Object, Str
 from think import Char, Letter, Digit, Word
 from think import Year, Month, Day, Date
+import think
+
+# TODO: every Type needs to be a memory type, so it can be used as an attribute.
+# Maybe don't enforce this in the core, but it should be the default everywhere
+# else. Also, attributes can try to compress themselves by removing unnecessary
+# basis vectors if they can express some thoughts in terms of others.
+
+think.thought_dim(1_000_000)
 
 # Word is a sequence of letters, until we learn more.
 w1 = Word('jababa')

@@ -194,6 +194,17 @@ class Type(type):
             cls.__qualname__ = name
         return cls
 
+    def __dir__(cls):
+        # dir normally contains keys from:
+        # * self.__dict__
+        # * cls.__dict__ for cls in self.__class__.mro()
+        # for a class produced by a metaclass, this should be:
+        self_dir  = [object.__dir__(cls)]
+        base_dirs = [object.__dir__(base) for base in cls.mro()]
+        all_dirs  = self_dir + base_dirs
+        dir = sum(all_dirs, [])
+        dir = sorted(set(dir))
+        return dir
 
 class Object(metaclass=Type):
 
@@ -255,18 +266,18 @@ class Object(metaclass=Type):
         return self
 
     def setfeel(self, attr, value):
-        value = self._ensure_value_is_attr_instance(attr, value)
+        value = attr._ensure_value_is_object(value)
         t = slow.setattr(attr, self, value)
         self.rethink(t)
         return self
 
     def setknow(self, attr, value):
-        value = self._ensure_value_is_attr_instance(attr, value)
+        value = attr._ensure_value_is_object(value)
         self.attrs[attr] = value
         return self
 
     def set(self, attr, value):
-        value = self._ensure_value_is_attr_instance(attr, value)
+        value = attr._ensure_value_is_object(value)
         self.setfeel(attr, value)
         self.setknow(attr, value)
         return self
@@ -328,13 +339,10 @@ class Object(metaclass=Type):
     def __truediv__(self, other):
         return Div(self, other)
 
-    def _ensure_value_is_attr_instance(self, attr, value):
+    @classmethod
+    def _ensure_value_is_object(cls, value):
         if not isinstance(value, Object):
-            value = attr(value)
-        elif value.type is not attr:
-            # experimental, e.g., Dirname(Pathname('/etc/security'))
-            # value = attr(value.unwrap())
-            value = value.unwrap()
+            value = cls(value)
         return value
 
     def unwrap(self):
