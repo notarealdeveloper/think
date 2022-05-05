@@ -17,10 +17,10 @@ def test_that_base_can_be_passed_in_metaclass_body():
 
     ETF = TickerType('ETF')
 
-    assert ETF.base is Ticker
+    assert issubclass(ETF, Ticker)
 
 
-def test_that_base_can_be_passed_in_metaclass_new():
+def test_that_bases_can_be_passed_in_metaclass_new():
 
     class StrType(Type):
         def __new__(cls, name):
@@ -28,7 +28,4 @@ def test_that_base_can_be_passed_in_metaclass_new():
 
     Name = StrType('Name')
 
-    assert Name.base is Str
-
-
-
+    assert issubclass(Name, Str)

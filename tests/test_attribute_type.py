@@ -13,36 +13,36 @@ s = 'hi'
 f = 0.05
 
 def test_attribute_type_for_core_objects():
-    assert Object(o).type is Object
-    assert Bool(b).type   is Bool
-    assert Str(s).type    is Str
-    assert Int(i).type    is Int
-    assert Float(f).type  is Float
+    assert type(Object(o)) is Object
+    assert type(Bool(b))   is Bool
+    assert type(Str(s))    is Str
+    assert type(Int(i))    is Int
+    assert type(Float(f))  is Float
 
 def test_attribute_type_for_core_types():
-    assert Object.type is Type
-    assert Bool.type   is Type
-    assert Str.type    is Type
-    assert Int.type    is Type
-    assert Float.type  is Type
+    assert type(Object) is Type
+    assert type(Bool)   is Type
+    assert type(Str)    is Type
+    assert type(Int)    is Type
+    assert type(Float)  is Type
 
 def test_attribute_type_for_core_meta():
-    assert Type.type       is Type
-    assert BoolType.type   is Type
-    assert StrType.type    is Type
-    assert IntType.type    is Type
-    assert FloatType.type  is Type
+    assert type(Type)       is type
+    assert type(BoolType)   is type
+    assert type(StrType)    is type
+    assert type(IntType)    is type
+    assert type(FloatType)  is type
 
 
-def test_attribute_type_for_derived_objects_of_():
+def test_attribute_type_for_derived_objects_built_from_calling_core_meta():
     Alive   = BoolType('Alive')
     Name    = StrType('Name')
     Age     = IntType('Age')
     Size    = FloatType('Size')
-    assert Alive(True).type  is Alive
-    assert Name('Dave').type is Name
-    assert Age(42).type      is Age
-    assert Size(0.1).type    is Size
+    assert type(Alive(True))  is Alive
+    assert type(Name('Dave')) is Name
+    assert type(Age(42))      is Age
+    assert type(Size(0.1))    is Size
 
 
 def test_attribute_type_for_derived_objects_built_from_subclassing_core_types():
@@ -50,8 +50,8 @@ def test_attribute_type_for_derived_objects_built_from_subclassing_core_types():
     class Name(Str):    pass
     class Age(Int):     pass
     class Size(Float):  pass
-    assert Alive(True).type  is Alive
-    assert Name('Dave').type is Name
-    assert Age(42).type      is Age
-    assert Size(0.1).type    is Size
+    assert type(Alive(True))  is Alive
+    assert type(Name('Dave')) is Name
+    assert type(Age(42))      is Age
+    assert type(Size(0.1))    is Size
 

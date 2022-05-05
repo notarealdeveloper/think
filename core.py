@@ -10,7 +10,6 @@
 
 # core objects
 __all__ = [
-    'T',
     'Object',
     'Bool',
     'Str',
@@ -47,14 +46,14 @@ logger = logging.getLogger(__name__)
 
 S = '\n * '
 
-class T(type):
+class Type(type):
 
     """ A better way to implement Type. """
 
-    firstborn = None
+    object = type
 
-    def __new__(meta, name='', bases=(), dict=None, **kwds):
-        logger.debug(f"{S}T.__new__ (enter):"
+    def __new__(meta, name, bases=(), dict=None, **kwds):
+        logger.debug(f"{S}Type.__new__ (enter):"
                      f"{S}meta={meta}"
                      f"{S}name={name}"
                      f"{S}bases={bases}"
@@ -62,21 +61,52 @@ class T(type):
                      f"{S}kwds={kwds}"
                      #f"{S}meta_dict={meta.__dict__}"
         )
-        if not bases and meta.firstborn is not None:
-            bases = (meta.firstborn,)
+
+        # dict
         if dict is None:
             dict = {}
         dict['__module__'] = None
-        cls = super().__new__(meta, name, bases, dict, **kwds)
+        dict |= kwds
+
+        # bases
+        if not bases:
+            if 'base' in dict: # compat
+                bases = (dict['base'],)
+            elif hasattr(meta, 'base'):
+                bases = (meta.base,)
+            elif hasattr(meta, 'firstborn'):
+                bases = (meta.firstborn,)
+            else:
+                assert name == 'Object'
+        elif isinstance(bases, type):
+            bases = (bases,)
+        else:
+            for base in bases:
+                assert isinstance(base, type)
+
+        try:
+            return TYPES[(meta, name, *bases)]
+        except:
+            pass
+
+        # upgrade methods to metamethods
         for k,v in dict.items():
             if k.startswith('__') and k.endswith('__'):
                 continue
             if isinstance(v, types.FunctionType):
-                setattr(cls, k, metamethod(v))
-                logger.debug(f"{cls.__name__}.{k} upgraded to metamethod")
-        if meta.firstborn is None:
+                dict[k] = metamethod(v)
+                logger.debug(f"{name}.{k} upgraded to metamethod")
+
+        # create the class
+        cls = super().__new__(meta, name, bases, dict)
+
+        if meta is not Type:
+            cls.object = meta.base.object
+
+        if not hasattr(meta, 'firstborn'):
             meta.firstborn = cls
-        logger.debug(f"{S}T.__new__ (exit):"
+
+        logger.debug(f"{S}Type.__new__ (exit):"
                      f"{S}meta={meta}"
                      f"{S}name={name}"
                      f"{S}bases={bases}"
@@ -86,10 +116,11 @@ class T(type):
                      #f"{S}meta_dict={meta.__dict__}"
                      #f"{S}cls_dict={cls.__dict__}"
         )
+        TYPES[(meta, name, *bases)] = cls
         return cls
 
-    def __init__(cls, name='', bases=(), dict=None, **kwds):
-        logger.debug(f"{S}T.__init__ (enter):"
+    def __init__(cls, name, bases=(), dict=None, **kwds):
+        logger.debug(f"{S}Type.__init__ (enter):"
                      f"{S}cls={cls}"
                      f"{S}name={name}"
                      f"{S}bases={bases}"
@@ -104,7 +135,7 @@ class T(type):
         cls.thought = Thought()
         cls.kwds = kwds
         cls.subs = []
-        logger.debug(f"{S}T.__init__ (exit):"
+        logger.debug(f"{S}Type.__init__ (exit):"
                      f"{S}cls={cls}"
                      f"{S}name={name}"
                      f"{S}bases={bases}"
@@ -115,8 +146,8 @@ class T(type):
         )
         return None
 
-    def __call__(cls, *args, **kwds):
-        logger.debug(f"{S}T.__call__ (enter):"
+    def __not_really_call__(cls, *args, **kwds):
+        logger.debug(f"{S}Type.__call__ (enter):"
                      f"{S}cls={cls}"
                      f"{S}args={args}"
                      f"{S}kwds={kwds}"
@@ -125,7 +156,7 @@ class T(type):
 
         self = super().__call__(*args, **kwds)
 
-        logger.debug(f"{S}T.__call__ (exit):"
+        logger.debug(f"{S}Type.__call__ (exit):"
                      f"{S}cls={cls}"
                      f"{S}args={args}"
                      f"{S}kwds={kwds}"
@@ -152,7 +183,7 @@ class T(type):
         return cls
 
 
-class Object(metaclass=T):
+class Object(metaclass=Type):
 
     object = object
 
@@ -174,14 +205,14 @@ class Object(metaclass=T):
         self.object  = object
         self.attrs   = {}
         self.thought = Thought()
-        self.type    = getattr(cls, 'meta', cls) # for derived objects
+        self.type    = type(cls)
         return self
 
     def __init__(self, object=None, t=None):
         pass
 
     def __init_subclass__(cls, **kwds):
-        logger.debug(f"{S}O.__init_subclass__ (enter):"
+        logger.debug(f"{S}Object.__init_subclass__ (enter):"
                      f"{S}cls={cls}"
                      f"{S}kwds={kwds}"
                      #f"{S}cls_dict={cls.__dict__}"
@@ -189,7 +220,7 @@ class Object(metaclass=T):
         super().__init_subclass__()
         for base in cls.bases:
             base.subs.append(cls)
-        logger.debug(f"{S}O.__init_subclass__ (exit):"
+        logger.debug(f"{S}Object.__init_subclass__ (exit):"
                      f"{S}cls={cls}"
                      f"{S}kwds={kwds}"
                      f"\n"
@@ -261,11 +292,26 @@ class Object(metaclass=T):
     def __array__(self):
         return self.think()
 
+    def __eq__(self, other):
+        return type(self) == type(other) and self.object == other.object
+
     def __repr__(self):
         return f"{self.__class__.__name__}({self.object})"
 
     def __bool__(self):
         return self.object is not None
+
+    def __add__(self, other):
+        return Add(self, other)
+
+    def __sub__(self, other):
+        return Sub(self, other)
+
+    def __mul__(self, other):
+        return Mul(self, other)
+
+    def __truediv__(self, other):
+        return Div(self, other)
 
     def _ensure_attr_is_object_subclass(self, attr):
         if not is_subclass_of_object(attr):
@@ -297,85 +343,11 @@ def is_instance_of_object(o):
 def is_subclass_of_object(o):
     return is_instance_of_object(o) and (o.type is Type)
 
-def Subclass(*bases, name=''):
-    return T(name, bases)
+def Subclass(*bases, name='Unnamed'):
+    return Type(name, bases)
 
 
 # types.py
-
-
-class Type(Object):
-
-    object = type
-
-    def __new__(cls, name, base=None, t=None):
-
-        if not base:
-            base = getattr(cls, 'base', Object)
-
-        if isinstance(base, tuple):
-            try:    [base] = base
-            except: raise NotImplementedError(f"No multiple inheritance yet.")
-
-        if not isinstance(name, str):
-            raise TypeError(f"Type's name must be a str")
-
-        if not isinstance(base, type):
-            raise TypeError(f"Type's base argument must be a class: {base}")
-
-        if not issubclass(base, Object):
-            raise TypeError(f"Type's base argument must subclass Object: {base}")
-
-        if self := TYPES.get((cls, name, base)):
-            return self
-
-        # initialize the core attributes here
-        # so the user doesn't have to remember
-        # to call super().__init__ or anything.
-        # This way, everything should Just Work.
-        self = object.__new__(cls)
-        self.name    = name
-        self.base    = base
-
-        self.object  = type(name, (base,), {'meta': self})
-        self.attrs   = {}
-        self.thought = Thought(t)
-
-        TYPES[(cls, name, base)] = self
-        return self
-
-    def __init__(self, name, base=None, t=None):
-        pass
-
-    def __call__(self, object):
-        return self.object(object)
-
-    def __add__(self, object):
-        return Add(self, object)
-
-    def __sub__(self, object):
-        return Sub(self, object)
-
-    def __mul__(self, object):
-        return Mul(self, object)
-
-    def __truediv__(self, object):
-        return Div(self, object)
-
-    def __repr__(self):
-        return f"{self.name}"
-
-    @abc.abstractmethod
-    def project(self, object):
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def invert(self, object):
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def params(self):
-        raise NotImplementedError
 
 
 # the solution to infinite regress is self reference.

@@ -2,10 +2,6 @@
 
 __all__ = [
     'EnumType',
-    'BoolType',
-    'StrType',
-    'IntType',
-    'FloatType',
 ]
 
 import slow
@@ -53,17 +49,4 @@ class EnumType(Type):
         vects = [slow.to_vector(o) for o in cls.params()]
         return jnp.stack(vects, axis=0)
 
-
-
-class BoolType(EnumType):
-    base = Bool
-
-class StrType(EnumType):
-    base = Str
-
-class IntType(EnumType):
-    base = Int
-
-class FloatType(EnumType):
-    base = Float
 
