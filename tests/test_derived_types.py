@@ -2,37 +2,53 @@
 
 import pytest
 
-from think import Object, Type
 from think import Bool, Int, Str, Float
 from think import BoolType, StrType, IntType, FloatType
 
-class Boolean(BoolType):
+Alive   = BoolType('Alive')
+Name    = StrType('Name')
+Age     = IntType('Age')
+Weight  = FloatType('Weight')
+
+def test_metacall_derived_bool_type_doesnt_accept_general_objects():
+    with pytest.raises(TypeError):
+        Alive(object())
+
+def test_metacall_derived_str_type_doesnt_accept_general_objects():
+    with pytest.raises(TypeError):
+        Name(object())
+
+def test_metacall_derived_int_type_doesnt_accept_general_objects():
+    with pytest.raises(TypeError):
+        Age(object())
+
+def test_metacall_derived_float_type_doesnt_accept_general_objects():
+    with pytest.raises(TypeError):
+        Weight(object())
+
+
+class Alive(Bool):
+    pass
+class Name(Str):
+    pass
+class Age(Int):
+    pass
+class Weight(Float):
     pass
 
-class String(StrType):
-    pass
+def test_class_derived_bool_type_doesnt_accept_general_objects():
+    with pytest.raises(TypeError):
+        Alive(object())
 
-class Integer(IntType):
-    pass
+def test_class_derived_str_type_doesnt_accept_general_objects():
+    with pytest.raises(TypeError):
+        Name(object())
 
-class Floating(FloatType):
-    pass
+def test_class_derived_int_type_doesnt_accept_general_objects():
+    with pytest.raises(TypeError):
+        Age(object())
 
-def test_idemopotence_for_derived_types():
-    assert Boolean('Alive') == Boolean('Alive')
-    assert String('Name')   == String('Name')
-    assert Integer('Age')   == Integer('Age')
-    assert Floating('Size') == Floating('Size')
-
-def test_type_attribute_for_derived_types():
-    assert Boolean.object  is type
-    assert String.object   is type
-    assert Integer.object  is type
-    assert Floating.object is type
-
-def test_base_attribute_for_derived_types():
-    assert Boolean.base  is Bool
-    assert String.base   is Str
-    assert Integer.base  is Int
-    assert Floating.base is Float
+def test_class_derived_float_type_doesnt_accept_general_objects():
+    with pytest.raises(TypeError):
+        Weight(object())
 

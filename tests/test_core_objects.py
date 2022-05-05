@@ -2,7 +2,7 @@
 
 import pytest
 
-from think import Bool, Int, Str, Float
+from think import Object, Bool, Int, Str, Float
 
 def test_bool_idempotence():
     assert Bool(True) is Bool(True)
@@ -32,15 +32,16 @@ def test_float_well_typed():
     with pytest.raises(TypeError):
         Float(object())
 
-def test_distinct_values_of_the_same_type_are_distinct():
+def test_core_objects_type_is_core_type():
+    assert type(Object(None))   is Object
+    assert type(Bool(True))     is Bool
+    assert type(Str('cake'))    is Str
+    assert type(Int(42))        is Int
+    assert type(Float(42.69))   is Float
+
+def test_core_objects_with_distinct_python_objects_are_not_equal():
     assert Bool(True) != Bool(False)
     assert Str('cake') != Str('pie')
     assert Int(3) != Int(4)
     assert Float(42.69) != Float(69.42)
-
-def test_that_the_type_of_instances_is_their_class():
-    assert type(Bool(True)) is Bool
-    assert type(Str('Dave')) is Str
-    assert type(Int(42)) is Int
-    assert type(Float(42.69)) is Float
 
