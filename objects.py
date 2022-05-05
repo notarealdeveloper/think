@@ -56,14 +56,17 @@ class Year(Str, metaclass=EnumType):
                 m, c = '19'
         else:
             raise ValueError(year)
-        self.thoughts = [
-            self.M(m),
-            self.C(c),
-            self.D(d),
-            self.Y(y),
-        ]
-    def think(self):
-        return slow.mix(self.thoughts)
+        attrs = {
+            self.M: m,
+            self.C: c,
+            self.D: d,
+            self.Y: y,
+        }
+        thoughts = [attr(value).thought for attr, value in attrs.items()]
+        self.thought = Thought(slow.mix(thoughts))
+        self.attrs = attrs
+        for attr, value in self.attrs.items():
+            self.setfeel(attr, value)
 
 
 class Month(Str, metaclass=EnumType):
@@ -96,8 +99,8 @@ class Date(Str):
             attrs = {Year: year, Month: month, Day: day}
         else:
             raise ValueError(date)
-        thoughts = [attr(value).thought for attr, value in attrs.items()]
         self.attrs = attrs
+        thoughts = [attr(value).thought for attr, value in attrs.items()]
         self.thought = Thought(slow.mix(thoughts))
         for attr, value in self.attrs.items():
             self.setfeel(attr, value)
