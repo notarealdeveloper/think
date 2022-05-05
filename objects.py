@@ -1,151 +1,104 @@
 #!/usr/bin/env python3
 
 __all__ = [
-    'Memory',
+    'Char',
+    'Letter',
+    'Digit',
+    'Word',
+    'Year',
+    'Month',
+    'Day',
+    'Date',
 ]
 
-import os
-import glob
-import pickle
-from collections import Counter
+import slow
+import string
+from think import Str, EnumType
+from think import Thought
 
-import fast
-from think import Object, hybridmethod
 
-class Memory(Object):
+class Char(Str, metaclass=EnumType):
+    def __init__(self, chr):
+        if len(chr) > 1:
+            raise ValueError(f"Not a char: {chr!r}")
 
-    def __init_subclass__(cls, **kwds):
-        cls.num_contexts = 0
-        cls.memory = {}
-        cls.counts = Counter()
-        cls.long_term_memory = cls.__qualname__
-        super().__init_subclass__(**kwds)
+class Letter(Char):
+    def __init__(self, letter):
+        if letter not in string.ascii_letters:
+            raise ValueError(f"Not a letter: {letter!r}")
 
-    @classmethod
-    def instances(cls):
-        memory = {}
-        for base in cls.subs:
-            memory |= base.memory
-        return memory
+class Digit(Char):
+    def __init__(self, digit):
+        if digit not in string.digits:
+            raise ValueError(f"Not a digit: {digit!r}")
 
-    def __new__(cls, obj):
-        if obj in cls.memory:
-            return cls.memory[obj]
-        self = super().__new__(cls, obj)
-        self.counts = Counter()
-        self.num_contexts = 0
-        cls.memory[obj] = self
-        return self
+class Word(Str, metaclass=EnumType):
+    def __init__(self, word):
+        super().__init__(word)
+        letters = [Letter(c).think() for c in word]
+        t = slow.mix(letters)
+        self.rethink(t)
 
-    def connect(self, others):
-        self.num_contexts += 1
-        for other in others:
-            self.counts[other] += 1
 
-    @hybridmethod
-    def count(self, object):
-        return self.counts[object]
-
-    @hybridmethod
-    def total(self):
-        return sum(self.counts.values())
-
-    @hybridmethod
-    def prob(self, obj):
-        return self.count(obj)/self.num_contexts
-
-    @hybridmethod
-    def probs(self):
-        return Counter({k:self.prob(v) for k,v in self.counts.items()})
-
-    @classmethod
-    def probs_given(cls, b):
-        return cls(b).probs()
-
-    @classmethod
-    def prob_a_given_b(cls, a, b):
-        return cls(b).prob(a)
-
-    def __getitem__(self, item):
-        return self.counts[item]
-
-    @classmethod
-    def __class_getitem__(cls, item):
-        return cls.counts[item]
-
-    def connections(self):
-        return tuple(sorted(self.probs().keys()))
-
-    def __getstate__(self):
-        return self.__dict__
-
-    def __setstate__(self, dict):
-        self.__dict__ = dict
-
-    def __reduce__(self):
-        tuple = (self.__class__, (self.object,), self.__getstate__())
-        return tuple
-
-    @classmethod
-    def save_all(cls, directory=None):
-        directory = directory or cls.long_term_memory
-        for name, obj in cls.memory.items():
-            pathname = f"{directory}/{name}.pkl"
-            obj.save(pathname)
-
-    @classmethod
-    def load_all(cls, directory=None):
-        directory = directory or cls.long_term_memory
-        pathnames = sorted(glob.glob(f"{directory}/*.pkl"))
-        for pathname in pathnames:
-            name = os.path.basename(pathname).rstrip('.pkl')
-            cls(name).load(pathname)
-
-    def save(self, pathname=None):
-        pathname = pathname or f"{cls.long_term_memory}/{self.object}.pkl"
-        os.makedirs(os.path.dirname(pathname), exist_ok=True)
-        with open(pathname, 'wb') as fp:
-            pickle.dump(self, fp)
-            print(f"Saved {self} to {pathname}")
-
-    def load(self, pathname=None):
-        pathname = pathname or f"{cls.long_term_memory}/{self.object}.pkl"
-        if not os.path.exists(pathname):
-            raise FileNotFoundError(pathname)
-        with open(pathname, 'rb') as fp:
-            self.__dict__ = pickle.load(fp).__dict__
-            print(f"Loaded {self} from {pathname}")
-        return self
-
-    def most_similar(self, k=10):
-        others = self.__class__.memory.values()
-        if isinstance(self, str):
-            self = self.__class__(self)
-            t_self = self.think()
-        elif isinstance(self, __class__):
-            t_self = self.think()
+class Year(Str, metaclass=EnumType):
+    class M(Digit): pass
+    class C(Digit): pass
+    class D(Digit): pass
+    class Y(Digit): pass
+    def __init__(self, year):
+        if len(year) == 4:
+            m, c, d, y = year
+        elif len(year) == 2:
+            d, y = year
+            if d in ['0', '1', '2']:
+                m, c = '20'
+            else:
+                m, c = '19'
         else:
-            t_self = self
-            self = None
-        sims = {}
-        for other in others:
-            if other == self:
-                continue
-            t_other = other.think()
-            sims[other.object] = fast.cos(t_self, t_other).item()
-        pairs = sorted(sims.items(), key=lambda pair: pair[1], reverse=True)
-        return pairs[:k]
+            raise ValueError(year)
+        self.thoughts = [
+            self.M(m),
+            self.C(c),
+            self.D(d),
+            self.Y(y),
+        ]
+    def think(self):
+        return slow.mix(self.thoughts)
 
+
+class Month(Str, metaclass=EnumType):
+    names = {
+        'january', 'february', 'march',
+        'april', 'may', 'june', 'july',
+        'august', 'september', 'october',
+        'november', 'december',
+    }
     @classmethod
-    def export(cls):
-        G = globals()
-        for k,v in cls.memory.items():
-            if k in G and not isinstance(G[k], cls):
-                continue
-            line = f"{k}={cls.__name__}({k!r})"
-            try:
-                exec(line, globals())
-                print(line)
-            except:
-                pass
+    def is_month_name(cls, str):
+        return str.lower() in cls.names
+
+
+class Day(Str, metaclass=EnumType):
+    pass
+
+
+class Date(Str):
+    # not an enumtype.
+    # the set of dates is too big to remember them all.
+    def __init__(self, date):
+        self.date = date
+        if len(date) == 4 and date.isnumeric():
+            attrs = {Year: date}
+        elif Month.is_month_name(date):
+            attrs = {Month: date}
+        elif '-' in date:
+            year, month, day = date.split('-')
+            attrs = {Year: year, Month: month, Day: day}
+        else:
+            raise ValueError(date)
+        thoughts = [attr(value).thought for attr, value in attrs.items()]
+        self.attrs = attrs
+        self.thought = Thought(slow.mix(thoughts))
+        for attr, value in self.attrs.items():
+            self.setfeel(attr, value)
 

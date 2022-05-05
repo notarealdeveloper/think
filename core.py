@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# core.py
+
 """
     All2Vec core.
 
@@ -8,23 +10,9 @@
     This time it's differentiable.
 """
 
-# core objects
 __all__ = [
     'Object',
-    'Bool',
-    'Str',
-    'Int',
-    'Float',
-    'Subclass',
-]
-
-# core types
-__all__ += [
     'Type',
-    'BoolType',
-    'StrType',
-    'IntType',
-    'FloatType',
 ]
 
 import abc
@@ -32,15 +20,23 @@ import types
 import logging
 import numbers
 import builtins
+import itertools
 
 import fast
 import slow
+import think
 from think import Thought, new_thought
 from think.internals import hybridmethod, metamethod
 from think.ops import Add, Sub, Mul, Div
 
 OBJECTS = {}
 TYPES   = {}
+
+# all 4 combinations of these two boolean variables
+# should produce identical outcomes if the system is
+# consistent.
+DEFINE_OBJECTS_USING_CLASSES = True
+DEFINE_TYPES_USING_CLASSES = True
 
 logger = logging.getLogger(__name__)
 
@@ -63,14 +59,12 @@ class Type(type):
         )
 
         # dict
-        if dict is None:
-            dict = {}
-        dict['__module__'] = None
+        dict = {} if dict is None else dict
         dict |= kwds
 
         # bases
         if not bases:
-            if 'base' in dict: # compat
+            if 'base' in dict:
                 bases = (dict['base'],)
             elif hasattr(meta, 'base'):
                 bases = (meta.base,)
@@ -84,10 +78,10 @@ class Type(type):
             for base in bases:
                 assert isinstance(base, type)
 
-        try:
-            return TYPES[(meta, name, *bases)]
-        except:
-            pass
+        #try:
+        #    return TYPES[(meta, name, *bases)]
+        #except:
+        #    pass
 
         # upgrade methods to metamethods
         for k,v in dict.items():
@@ -99,9 +93,7 @@ class Type(type):
 
         # create the class
         cls = super().__new__(meta, name, bases, dict)
-
-        if meta is not Type:
-            cls.object = meta.base.object
+        cls.__module__ = None
 
         if not hasattr(meta, 'firstborn'):
             meta.firstborn = cls
@@ -116,6 +108,12 @@ class Type(type):
                      #f"{S}meta_dict={meta.__dict__}"
                      #f"{S}cls_dict={cls.__dict__}"
         )
+        cls.name = name
+        cls.bases = [base for base in cls.mro() if hasattr(base, 'think')]
+        cls.attrs = {}
+        cls.thought = Thought()
+        cls.kwds = kwds
+        cls.subs = []
         TYPES[(meta, name, *bases)] = cls
         return cls
 
@@ -129,12 +127,6 @@ class Type(type):
                      #f"{S}cls_dict={cls.__dict__}"
         )
         super().__init__(name, bases, dict)
-        cls.name = name
-        cls.bases = [base for base in cls.mro() if hasattr(base, 'think')]
-        cls.attrs = {}
-        cls.thought = Thought()
-        cls.kwds = kwds
-        cls.subs = []
         logger.debug(f"{S}Type.__init__ (exit):"
                      f"{S}cls={cls}"
                      f"{S}name={name}"
@@ -146,7 +138,7 @@ class Type(type):
         )
         return None
 
-    def __not_really_call__(cls, *args, **kwds):
+    def __call__(cls, *args, **kwds):
         logger.debug(f"{S}Type.__call__ (enter):"
                      f"{S}cls={cls}"
                      f"{S}args={args}"
@@ -154,8 +146,16 @@ class Type(type):
                      #f"{S}cls_dict={cls.__dict__}"
         )
 
-        self = super().__call__(*args, **kwds)
-
+        # Tests not passing, but include this experimentally.
+        #
+        # I think the super(cls, cls) caused a python bug even when it didn't execute lol.
+        #
+        # if getattr(cls, 'auto', None) == True:
+        #     self = super(cls, cls).__new__(cls, *args, **kwds)
+        #     for base in reversed(self.bases):
+        #         base.__init__(self, *args, **kwds)
+        self = type.__call__(cls, *args, **kwds)
+        # self.__class__ = cls
         logger.debug(f"{S}Type.__call__ (exit):"
                      f"{S}cls={cls}"
                      f"{S}args={args}"
@@ -166,12 +166,17 @@ class Type(type):
         )
         return self
 
-    def parent_thoughts(cls):
-        return [base.thought for base in cls.bases]
+    @metamethod
+    def mro(cls):
+        return type.mro(cls)
+
+    __module__ = None
+    def __init_subclass__(meta):
+        meta.__module__ = None
 
     def think(cls):
         t = cls.thought
-        Ts = cls.parent_thoughts()
+        Ts = [base.thought for base in cls.bases]
         if not Ts:
             return t.think()
         else:
@@ -182,6 +187,13 @@ class Type(type):
         cls.thought.rethink(t)
         return cls
 
+    def name(cls, name=None):
+        if name is None:
+            return cls.__qualname__
+        else:
+            cls.__qualname__ = name
+        return cls
+
 
 class Object(metaclass=Type):
 
@@ -190,6 +202,11 @@ class Object(metaclass=Type):
     """ An Object you can .think() about. """
 
     def __new__(cls, object=None, t=None):
+
+        if isinstance(object, Type):
+            name = f"{cls.__name__}({object.__name__})"
+            bases = (object,)
+            return type(cls)(name, bases, {})
 
         if not isinstance(object, cls.object):
             raise TypeError(f"object {object} is not of type {cls.object}")
@@ -227,13 +244,11 @@ class Object(metaclass=Type):
                      #f"{S}cls_dict={cls.__dict__}"
         )
 
-    @metamethod
     def think(self):
         T = type(self).think()
         t = self.thought.think()
         return slow.mix([T, t])
 
-    @metamethod
     def rethink(self, t):
         self.thought.rethink(t)
         return self
@@ -250,7 +265,6 @@ class Object(metaclass=Type):
         return self
 
     def set(self, attr, value):
-        attr  = self._ensure_attr_is_object_subclass(attr)
         value = self._ensure_value_is_attr_instance(attr, value)
         self.setfeel(attr, value)
         self.setknow(attr, value)
@@ -274,7 +288,6 @@ class Object(metaclass=Type):
         return thought if not hard else attr.invert(thought)
 
     def get(self, attr, how='feel', hard=True):
-        attr = self._ensure_attr_is_object_subclass(attr)
         if how == 'feel':
             return self.getfeel(attr, hard=hard)
         elif how == 'know':
@@ -289,6 +302,7 @@ class Object(metaclass=Type):
         else:
             return thought
 
+    @metamethod
     def __array__(self):
         return self.think()
 
@@ -313,13 +327,8 @@ class Object(metaclass=Type):
     def __truediv__(self, other):
         return Div(self, other)
 
-    def _ensure_attr_is_object_subclass(self, attr):
-        if not is_subclass_of_object(attr):
-            raise TypeError(attr)
-        return attr
-
     def _ensure_value_is_attr_instance(self, attr, value):
-        if not is_instance_of_object(value):
+        if not isinstance(value, Object):
             value = attr(value)
         elif value.type is not attr:
             # experimental, e.g., Dirname(Pathname('/etc/security'))
@@ -337,19 +346,6 @@ class Object(metaclass=Type):
         return cls.unwrap(object)
 
 
-def is_instance_of_object(o):
-    return isinstance(o, Object)
-
-def is_subclass_of_object(o):
-    return is_instance_of_object(o) and (o.type is Type)
-
-def Subclass(*bases, name='Unnamed'):
-    return Type(name, bases)
-
-
-# types.py
-
-
 # the solution to infinite regress is self reference.
 # 1. type's type is type
 # 2. type's base is object
@@ -363,27 +359,99 @@ Type.base = Object
 Object.base = Object
 
 
-class Int(Object):
-    object = int
+# objects.py
 
-class Float(Object):
-    object = float
+# from think.core import Object, Type
 
-class Str(Object):
-    object = str
+__all__ += [
+    'Bool',
+    'Str',
+    'Int',
+    'Float',
+    'Bytes',
+    'Complex',
+]
 
-class Bool(Object):
-    object = bool
+if DEFINE_OBJECTS_USING_CLASSES:
+    class Str(Object):
+        object = str
 
-class BoolType(Type):
-    base = Bool
+    class Int(Object):
+        object = int
 
-class StrType(Type):
-    base = Str
+    class Bool(Int):
+        # bool.mro() is [bool, int, object]
+        object = bool
 
-class IntType(Type):
-    base = Int
+    class Bytes(Object):
+        object = bytes
 
-class FloatType(Type):
-    base = Float
+    class Float(Object):
+        object = float
+
+    class Complex(Object):
+        object = complex
+
+
+else:
+    Str     = Type('Str',     Object, object=str)
+    Int     = Type('Int',     Object, object=int)
+    Bool    = Type('Bool',    Int,    object=bool) # bool.mro() is [bool, int, object]
+    Bytes   = Type('Bytes',   Object, object=bytes)
+    Float   = Type('Float',   Object, object=float)
+    Complex = Type('Complex', Object, object=complex)
+
+
+# types.py
+
+# from think.core import Object, Type
+# from think.objects import Bool, Str, Int, Float, Bytes, Complex
+
+__all__ += [
+    'BoolType',
+    'StrType',
+    'IntType',
+    'FloatType',
+    'BytesType',
+    'ComplexType',
+]
+
+if DEFINE_TYPES_USING_CLASSES:
+    class BoolType(Type):
+        base = Bool
+
+    class StrType(Type):
+        base = Str
+
+    class IntType(Type):
+        base = Int
+
+    class FloatType(Type):
+        base = Float
+
+    class BytesType(Type):
+        base = Bytes
+
+    class ComplexType(Type):
+        base = Complex
+
+else:
+    BoolType    = type('BoolType', (Type,), {'base':Bool})
+    StrType     = type('StrType', (Type,), {'base':Str})
+    IntType     = type('IntType', (Type,), {'base':Int})
+    FloatType   = type('FloatType', (Type,), {'base':Float})
+    BytesType   = type('BytesType', (Type,), {'base':Bytes})
+    ComplexType = type('ComplexType', (Type,), {'base':Complex})
+
+
+# resolve the infinite loop by overwriting the metaclass pointer
+#Str.__class__       = StrType
+#Int.__class__       = IntType
+#Float.__class__     = FloatType
+#Bytes.__class__     = BytesType
+#Bool.__class__      = BoolType
+#Complex.__class__   = ComplexType
+
+# thus ends the core
+# all else is commentary
 
