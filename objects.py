@@ -12,14 +12,21 @@ from collections import Counter
 import fast
 from think import Object, hybridmethod
 
-
 class Memory(Object):
 
-    def __init_subclass__(cls):
+    def __init_subclass__(cls, **kwds):
         cls.num_contexts = 0
         cls.memory = {}
         cls.counts = Counter()
         cls.long_term_memory = cls.__qualname__
+        super().__init_subclass__(**kwds)
+
+    @classmethod
+    def instances(cls):
+        memory = {}
+        for base in cls.subs:
+            memory |= base.memory
+        return memory
 
     def __new__(cls, obj):
         if obj in cls.memory:
@@ -30,7 +37,6 @@ class Memory(Object):
         cls.memory[obj] = self
         return self
 
-    @hybridmethod
     def connect(self, others):
         self.num_contexts += 1
         for other in others:

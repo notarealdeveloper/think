@@ -10,11 +10,13 @@
 
 # core objects
 __all__ = [
+    'T',
     'Object',
     'Bool',
     'Str',
     'Int',
     'Float',
+    'Subclass',
 ]
 
 # core types
@@ -27,14 +29,15 @@ __all__ += [
 ]
 
 import abc
+import types
 import logging
 import numbers
 import builtins
 
 import fast
 import slow
-from think import Thought
-from think.internals import hybridmethod
+from think import Thought, new_thought
+from think.internals import hybridmethod, metamethod
 from think.ops import Add, Sub, Mul, Div
 
 OBJECTS = {}
@@ -42,21 +45,111 @@ TYPES   = {}
 
 logger = logging.getLogger(__name__)
 
+S = '\n * '
 
 class T(type):
 
-    def __new__(meta, name, bases, dict):
-        logger.debug(f"T.__new__: {meta}, {name}, {bases}, {dict}")
-        cls = super().__new__(meta, name, bases, dict)
+    """ A better way to implement Type. """
+
+    firstborn = None
+
+    def __new__(meta, name='', bases=(), dict=None, **kwds):
+        logger.debug(f"{S}T.__new__ (enter):"
+                     f"{S}meta={meta}"
+                     f"{S}name={name}"
+                     f"{S}bases={bases}"
+                     f"{S}dict={dict}"
+                     f"{S}kwds={kwds}"
+                     #f"{S}meta_dict={meta.__dict__}"
+        )
+        if not bases and meta.firstborn is not None:
+            bases = (meta.firstborn,)
+        if dict is None:
+            dict = {}
+        dict['__module__'] = None
+        cls = super().__new__(meta, name, bases, dict, **kwds)
+        for k,v in dict.items():
+            if k.startswith('__') and k.endswith('__'):
+                continue
+            if isinstance(v, types.FunctionType):
+                setattr(cls, k, metamethod(v))
+                logger.debug(f"{cls.__name__}.{k} upgraded to metamethod")
+        if meta.firstborn is None:
+            meta.firstborn = cls
+        logger.debug(f"{S}T.__new__ (exit):"
+                     f"{S}meta={meta}"
+                     f"{S}name={name}"
+                     f"{S}bases={bases}"
+                     f"{S}dict={dict}"
+                     f"{S}kwds={kwds}"
+                     f"\n"
+                     #f"{S}meta_dict={meta.__dict__}"
+                     #f"{S}cls_dict={cls.__dict__}"
+        )
         return cls
 
-    def __init__(cls, name, bases, dict):
-        logger.debug(f"T.__init__: {cls}, {name}, {bases}, {dict}")
+    def __init__(cls, name='', bases=(), dict=None, **kwds):
+        logger.debug(f"{S}T.__init__ (enter):"
+                     f"{S}cls={cls}"
+                     f"{S}name={name}"
+                     f"{S}bases={bases}"
+                     f"{S}dict={dict}"
+                     f"{S}kwds={kwds}"
+                     #f"{S}cls_dict={cls.__dict__}"
+        )
         super().__init__(name, bases, dict)
+        cls.name = name
+        cls.bases = [base for base in cls.mro() if hasattr(base, 'think')]
+        cls.attrs = {}
+        cls.thought = Thought()
+        cls.kwds = kwds
+        cls.subs = []
+        logger.debug(f"{S}T.__init__ (exit):"
+                     f"{S}cls={cls}"
+                     f"{S}name={name}"
+                     f"{S}bases={bases}"
+                     f"{S}dict={dict}"
+                     f"{S}kwds={kwds}"
+                     f"\n"
+                     #f"{S}cls_dict={cls.__dict__}"
+        )
+        return None
 
     def __call__(cls, *args, **kwds):
-        logger.debug(f"T.__call__: {cls}, {args}, {kwds}")
-        return super().__call__(*args, **kwds)
+        logger.debug(f"{S}T.__call__ (enter):"
+                     f"{S}cls={cls}"
+                     f"{S}args={args}"
+                     f"{S}kwds={kwds}"
+                     #f"{S}cls_dict={cls.__dict__}"
+        )
+
+        self = super().__call__(*args, **kwds)
+
+        logger.debug(f"{S}T.__call__ (exit):"
+                     f"{S}cls={cls}"
+                     f"{S}args={args}"
+                     f"{S}kwds={kwds}"
+                     #f"{S}cls_dict={cls.__dict__}"
+                     f"{S}self={self}"
+                     f"\n"
+        )
+        return self
+
+    def parent_thoughts(cls):
+        return [base.thought for base in cls.bases]
+
+    def think(cls):
+        t = cls.thought
+        Ts = cls.parent_thoughts()
+        if not Ts:
+            return t.think()
+        else:
+            T = slow.mix(Ts)
+            return slow.mix([T, t])
+
+    def rethink(cls, t):
+        cls.thought.rethink(t)
+        return cls
 
 
 class Object(metaclass=T):
@@ -65,7 +158,7 @@ class Object(metaclass=T):
 
     """ An Object you can .think() about. """
 
-    def __new__(cls, object, t=None):
+    def __new__(cls, object=None, t=None):
 
         if not isinstance(object, cls.object):
             raise TypeError(f"object {object} is not of type {cls.object}")
@@ -80,22 +173,36 @@ class Object(metaclass=T):
         OBJECTS[(cls, object)] = self
         self.object  = object
         self.attrs   = {}
-        self.thought = Thought(t)
+        self.thought = Thought()
         self.type    = getattr(cls, 'meta', cls) # for derived objects
         return self
 
-    def __init__(self, object, t=None):
+    def __init__(self, object=None, t=None):
         pass
 
-    def __init_subclass__(cls):
-        cls.attrs   = {}
-        cls.thought = Thought()
+    def __init_subclass__(cls, **kwds):
+        logger.debug(f"{S}O.__init_subclass__ (enter):"
+                     f"{S}cls={cls}"
+                     f"{S}kwds={kwds}"
+                     #f"{S}cls_dict={cls.__dict__}"
+        )
+        super().__init_subclass__()
+        for base in cls.bases:
+            base.subs.append(cls)
+        logger.debug(f"{S}O.__init_subclass__ (exit):"
+                     f"{S}cls={cls}"
+                     f"{S}kwds={kwds}"
+                     f"\n"
+                     #f"{S}cls_dict={cls.__dict__}"
+        )
 
-    @hybridmethod
+    @metamethod
     def think(self):
-        return self.thought.think()
+        T = type(self).think()
+        t = self.thought.think()
+        return slow.mix([T, t])
 
-    @hybridmethod
+    @metamethod
     def rethink(self, t):
         self.thought.rethink(t)
         return self
@@ -190,19 +297,11 @@ def is_instance_of_object(o):
 def is_subclass_of_object(o):
     return is_instance_of_object(o) and (o.type is Type)
 
+def Subclass(*bases, name=''):
+    return T(name, bases)
+
 
 # types.py
-
-__all__ += [
-    'Type',
-    'BoolType',
-    'StrType',
-    'IntType',
-    'FloatType',
-]
-
-
-TYPES = {}
 
 
 class Type(Object):
@@ -290,9 +389,6 @@ Type.type = Type
 Object.type = Type
 Type.base = Object
 Object.base = Object
-
-Object.attrs   = {}
-Object.thought = Thought()
 
 
 class Int(Object):

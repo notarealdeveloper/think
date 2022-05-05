@@ -7,12 +7,16 @@ __all__ = [
 import os
 import sys
 import logging
-
+import threading
 
 def set_log_level(level, name='think'):
     logger = logging.getLogger(name)
     levelnum = getattr(logging, level.upper())
     logger.setLevel(levelnum)
+    for handler in logger.handlers:
+        if isinstance(handler, logging.FileHandler):
+            continue
+        handler.setLevel(levelnum)
     return logger
 
 
@@ -30,7 +34,8 @@ def get_logger(name):
     formatter = logging.Formatter(format, datefmt='%Y-%m-%d_%H:%M:%S')
 
     # create stream handler
-    stream = sys.stderr
+    stream = threading.main_thread()._stderr
+    #stream = sys.stdout
     sh = logging.StreamHandler(stream)
     sh.setLevel(level)
     sh.setFormatter(formatter)
