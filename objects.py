@@ -15,7 +15,7 @@ __all__ = [
 
 import slow
 import string
-from think import Str, Type, Thought
+from think import Bool, Str, Type, Thought
 
 
 # Letters
@@ -28,41 +28,48 @@ class Char(Str):
 
 class Letter(Char):
 
-    LETTERS = set(string.ascii_letters)
+    LETTERS   = set(string.ascii_letters)
+    LOWERCASE = set(string.ascii_lowercase)
+    UPPERCASE = set(string.ascii_uppercase)
+
+    LOWER_TO_UPPER = dict(zip(string.ascii_lowercase, string.ascii_uppercase))
+    UPPER_TO_LOWER = dict(zip(string.ascii_uppercase, string.ascii_lowercase))
 
     def __init__(self, letter):
         if letter not in self.LETTERS:
             raise TypeError(f"Not a letter: {letter!r}")
+        if letter in self.UPPERCASE:
+            self.set(self.IsLowercase, False)
+            self.set(self.IsUppercase, True)
+            self.set(self.Lowercase, self.UPPER_TO_LOWER[letter])
+
+        if letter in self.LOWERCASE:
+            self.set(self.IsUppercase, False)
+            self.set(self.IsLowercase, True)
+            self.set(self.Uppercase, self.LOWER_TO_UPPER[letter])
+
+    class IsUppercase(Bool): pass
+    class IsLowercase(Bool): pass
+
+    class Uppercase(Char): pass
+    class Lowercase(Char): pass
 
 
 # Words
 
 class Word(Str):
     def __init__(self, letters):
-        for n, letter in enumerate(reversed(letters)):
+        for n, letter in enumerate(letters):
             self.set(Letter[n], letter)
+
 
 # Digits
 
 class Digit(Char):
-
     DIGITS = set(string.digits)
-
     def __init__(self, digit):
         if digit not in self.DIGITS:
             raise TypeError(f"Not a digit: {digit!r}")
-
-    def __class_getitem__(cls, n):
-        try:
-            return cls.subclasses[n]
-        except AttributeError:
-            cls.subclasses = {}
-        except KeyError:
-            pass
-        name = f"Digit{n}"
-        sub = Type(name, Digit)
-        cls.subclasses[n] = sub
-        return sub
 
 
 class Digits(Str):
@@ -135,7 +142,7 @@ class Date(Str):
 
 class Sentence(Str):
     def __init__(self, sentence):
-        words = sentence.split(' ')
-        for n, word in enumerate(reversed(words)):
+        self.words = sentence.split(' ')
+        for n, word in enumerate(self.words):
             self.set(Word[n], word)
 
