@@ -4,72 +4,101 @@ __all__ = [
     'Char',
     'Letter',
     'Digit',
+    'Digits',
     'Word',
     'Year',
     'Month',
     'Day',
     'Date',
+    'Sentence',
 ]
 
 import slow
 import string
-from think import Str, EnumType
-from think import Thought
+from think import Str, Type, Thought
 
 
-class Char(Str, metaclass=EnumType):
+# Letters
+
+class Char(Str):
     def __init__(self, chr):
         if len(chr) > 1:
-            raise ValueError(f"Not a char: {chr!r}")
+            raise TypeError(f"Not a char: {chr!r}")
+
 
 class Letter(Char):
+
+    LETTERS = set(string.ascii_letters)
+
     def __init__(self, letter):
-        if letter not in string.ascii_letters:
-            raise ValueError(f"Not a letter: {letter!r}")
+        if letter not in self.LETTERS:
+            raise TypeError(f"Not a letter: {letter!r}")
+
+
+# Words
+
+class Word(Str):
+    def __init__(self, letters):
+        for n, letter in enumerate(reversed(letters)):
+            self.set(Letter[n], letter)
+
+# Digits
 
 class Digit(Char):
+
+    DIGITS = set(string.digits)
+
     def __init__(self, digit):
-        if digit not in string.digits:
-            raise ValueError(f"Not a digit: {digit!r}")
+        if digit not in self.DIGITS:
+            raise TypeError(f"Not a digit: {digit!r}")
 
-class Word(Str, metaclass=EnumType):
-    def __init__(self, word):
-        super().__init__(word)
-        letters = [Letter(c).think() for c in word]
-        t = slow.mix(letters)
-        self.rethink(t)
+    def __class_getitem__(cls, n):
+        try:
+            return cls.subclasses[n]
+        except AttributeError:
+            cls.subclasses = {}
+        except KeyError:
+            pass
+        name = f"Digit{n}"
+        sub = Type(name, Digit)
+        cls.subclasses[n] = sub
+        return sub
 
 
-class Year(Str, metaclass=EnumType):
-    class M(Digit): pass
-    class C(Digit): pass
-    class D(Digit): pass
-    class Y(Digit): pass
+class Digits(Str):
+
+    def __init__(self, digits):
+        if not digits.isnumeric():
+            raise TypeError(f"Not a numeric string: {digits!r}")
+        self.digits = list(digits)
+        for n, digit in enumerate(reversed(digits)):
+            self.set(Digit[n], digit)
+
+
+# Dates and Times
+
+class Year(Str):
+
+    Millenium = Digit[3]
+    Century   = Digit[2]
+    Decade    = Digit[1]
+    Year      = Digit[0]
+
     def __init__(self, year):
+        if not year.isnumeric():
+            raise TypeError(f"Not a year: {year!r}")
         if len(year) == 4:
-            m, c, d, y = year
+            pass
         elif len(year) == 2:
-            d, y = year
-            if d in ['0', '1', '2']:
-                m, c = '20'
-            else:
-                m, c = '19'
+            year = f"20{year}" if year[0] in '012' else f"19{year}"
         else:
-            raise ValueError(year)
-        attrs = {
-            self.M: m,
-            self.C: c,
-            self.D: d,
-            self.Y: y,
-        }
-        #thoughts = [attr(value).thought for attr, value in attrs.items()]
-        #self.thought = Thought(slow.mix(thoughts))
-        self.attrs = attrs
-        for attr, value in self.attrs.items():
-            self.setfeel(attr, value)
+            raise TypeError(year)
+        digits = list(year)
+        for n, digit in enumerate(reversed(digits)):
+            self.set(Digit[n], digit)
 
 
-class Month(Str, metaclass=EnumType):
+class Month(Str):
     names = {
         'january', 'february', 'march',
         'april', 'may', 'june', 'july',
@@ -81,13 +110,11 @@ class Month(Str, metaclass=EnumType):
         return str.lower() in cls.names
 
 
-class Day(Str, metaclass=EnumType):
+class Day(Str):
     pass
 
 
 class Date(Str):
-    # not an enumtype.
-    # the set of dates is too big to remember them all.
     def __init__(self, date):
         self.date = date
         if len(date) == 4 and date.isnumeric():
@@ -100,8 +127,15 @@ class Date(Str):
         else:
             raise ValueError(date)
         self.attrs = attrs
-        #thoughts = [attr(value).thought for attr, value in attrs.items()]
-        #self.thought = Thought(slow.mix(thoughts))
         for attr, value in self.attrs.items():
             self.setfeel(attr, value)
+
+
+# Sentences
+
+class Sentence(Str):
+    def __init__(self, sentence):
+        words = sentence.split(' ')
+        for n, word in enumerate(reversed(words)):
+            self.set(Word[n], word)
 

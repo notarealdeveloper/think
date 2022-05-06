@@ -21,6 +21,7 @@ import logging
 import numbers
 import builtins
 import itertools
+import jax.numpy as jnp
 
 import fast
 import slow
@@ -105,8 +106,8 @@ class Type(type):
                      f"{S}dict={dict}"
                      f"{S}kwds={kwds}"
                      f"\n"
-                     #f"{S}meta_dict={meta.__dict__}"
-                     #f"{S}cls_dict={cls.__dict__}"
+                     f"{S}meta_dict={meta.__dict__}"
+                     f"{S}cls_dict={cls.__dict__}"
         )
         cls.name = name
         cls.bases = [base for base in cls.mro() if hasattr(base, 'think')]
@@ -114,7 +115,7 @@ class Type(type):
         cls.thought = Thought()
         cls.kwds = kwds
         cls.subs = []
-        TYPES[(meta, name, *bases)] = cls
+        #TYPES[(meta, name, *bases)] = cls
         return cls
 
     def __init__(cls, name, bases=(), dict=None, **kwds):
@@ -124,9 +125,11 @@ class Type(type):
                      f"{S}bases={bases}"
                      f"{S}dict={dict}"
                      f"{S}kwds={kwds}"
-                     #f"{S}cls_dict={cls.__dict__}"
+                     f"{S}cls_dict={cls.__dict__}"
         )
         super().__init__(name, bases, dict)
+        # Experimental: all types are memory types
+        cls.memory = {}
         logger.debug(f"{S}Type.__init__ (exit):"
                      f"{S}cls={cls}"
                      f"{S}name={name}"
@@ -134,33 +137,31 @@ class Type(type):
                      f"{S}dict={dict}"
                      f"{S}kwds={kwds}"
                      f"\n"
-                     #f"{S}cls_dict={cls.__dict__}"
+                     f"{S}cls_dict={cls.__dict__}"
         )
         return None
 
-    def __call__(cls, *args, **kwds):
+    def __call__(cls, obj, *args, **kwds):
         logger.debug(f"{S}Type.__call__ (enter):"
                      f"{S}cls={cls}"
                      f"{S}args={args}"
                      f"{S}kwds={kwds}"
-                     #f"{S}cls_dict={cls.__dict__}"
+                     f"{S}cls_dict={cls.__dict__}"
         )
 
-        # Tests not passing, but include this experimentally.
-        #
-        # I think the super(cls, cls) caused a python bug even when it didn't execute lol.
-        #
-        # if getattr(cls, 'auto', None) == True:
-        #     self = super(cls, cls).__new__(cls, *args, **kwds)
-        #     for base in reversed(self.bases):
-        #         base.__init__(self, *args, **kwds)
-        self = type.__call__(cls, *args, **kwds)
-        # self.__class__ = cls
+        if obj in cls.memory:
+            return cls.memory[obj]
+        # self = super().__call__(obj, *args, **kwds)
+        self = cls.__new__(cls, obj, *args, **kwds)
+        if isinstance(self, cls):
+            cls.__init__(self, obj, *args, **kwds)
+        cls.memory[obj] = self
+
         logger.debug(f"{S}Type.__call__ (exit):"
                      f"{S}cls={cls}"
                      f"{S}args={args}"
                      f"{S}kwds={kwds}"
-                     #f"{S}cls_dict={cls.__dict__}"
+                     f"{S}cls_dict={cls.__dict__}"
                      f"{S}self={self}"
                      f"\n"
         )
@@ -199,12 +200,49 @@ class Type(type):
         # * self.__dict__
         # * cls.__dict__ for cls in self.__class__.mro()
         # for a class produced by a metaclass, this should be:
-        self_dir  = [object.__dir__(cls)]
-        base_dirs = [object.__dir__(base) for base in cls.mro()]
+        self_dir  = [list(cls.__dict__)]
+        base_dirs = [list(base.__dict__) for base in cls.mro()]
         all_dirs  = self_dir + base_dirs
         dir = sum(all_dirs, [])
         dir = sorted(set(dir))
         return dir
+
+    # begin experimental: for allowing all types to be memory types by default
+
+    def instances(cls):
+        instances = {}
+        for base in cls.subs:
+            instances |= base.memory
+        return instances
+
+    def similarities(cls, object):
+        print('similarities called')
+        pairs = cls.memory.items()
+        keys = [k for k,v in pairs]
+        vals = [v.think() for k,v in pairs]
+        sims = slow.pre_attention_l1(vals, object)
+        sims = [s.item() for s in sims]
+        pairs = list(zip(keys, sims))
+        return sorted(pairs, key=lambda pair: pair[1], reverse=True)
+
+    def invert(cls, object):
+        pairs = cls.memory.items()
+        keys = [k for k,v in pairs]
+        vals = [v.think() for k,v in pairs]
+        sims = slow.pre_attention_l1(vals, object)
+        idx  = int(jnp.argmax(sims))
+        key  = list(keys)[idx]
+        return key
+
+    def project(cls, object):
+        return slow.attention_l1(cls, object)
+
+    def __array__(cls):
+        vects = [slow.to_vector(o) for o in cls.memory.values()]
+        return jnp.stack(vects, axis=0)
+
+    # begin experimental: for allowing all types to be memory types by default
+
 
 class Object(metaclass=Type):
 
@@ -225,7 +263,6 @@ class Object(metaclass=Type):
         try:
             return OBJECTS[(cls, object)]
         except:
-            # print(f"New object: {cls}, {object}")
             pass
 
         self = builtins.object.__new__(cls)
@@ -236,14 +273,14 @@ class Object(metaclass=Type):
         self.type    = type(cls)
         return self
 
-    def __init__(self, object=None, t=None):
+    def __init__(self, *args, **kwds):
         pass
 
     def __init_subclass__(cls, **kwds):
         logger.debug(f"{S}Object.__init_subclass__ (enter):"
                      f"{S}cls={cls}"
                      f"{S}kwds={kwds}"
-                     #f"{S}cls_dict={cls.__dict__}"
+                     f"{S}cls_dict={cls.__dict__}"
         )
         super().__init_subclass__()
         for base in cls.bases:
@@ -251,14 +288,11 @@ class Object(metaclass=Type):
         logger.debug(f"{S}Object.__init_subclass__ (exit):"
                      f"{S}cls={cls}"
                      f"{S}kwds={kwds}"
+                     f"{S}cls_dict={cls.__dict__}"
                      f"\n"
-                     #f"{S}cls_dict={cls.__dict__}"
         )
 
     def think(self):
-        #T = type(self).think()
-        #t = self.thought.think()
-        #return slow.mix([T, t])
         return self.thought.think()
 
     def rethink(self, t):
@@ -353,6 +387,19 @@ class Object(metaclass=Type):
     @classmethod
     def ensure_unwrapped(cls, object):
         return cls.unwrap(object)
+
+    def __class_getitem__(cls, n):
+        """ This is how to handle sequences. """
+        try:
+            return cls.subclasses[n]
+        except AttributeError:
+            cls.subclasses = {}
+        except KeyError:
+            pass
+        name = f"{cls.__name__}{n}"
+        sub = Type(name, cls)
+        cls.subclasses[n] = sub
+        return sub
 
 
 # the solution to infinite regress is self reference.
