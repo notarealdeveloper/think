@@ -68,6 +68,17 @@ assert s.get(Word[1]) == 'is'
 assert s.get(Word[2]) == 'a'
 assert s.get(Word[3]) == 'brain'
 
+s = Sentence('How are you doing')
+assert s.get(Word[0]) == 'How'
+assert s.get(Word[1]) == 'are'
+assert s.get(Word[2]) == 'you'
+assert s.get(Word[3]) == 'doing'
+
+s = Sentence('Whats going on')
+assert s.get(Word[0]) == 'Whats'
+assert s.get(Word[1]) == 'going'
+assert s.get(Word[2]) == 'on'
+
 s = 'This is a brain'
 w = Sentence(s).get(Word[3])
 assert w == 'brain'
@@ -81,8 +92,8 @@ a = Word(w).get(Letter[2])
 i = Word(w).get(Letter[3])
 a = Letter(a)
 i = Letter(i)
-A = a.get(Letter.Uppercase)
-I = i.get(Letter.Uppercase)
-assert A == 'A'
-assert I == 'I'
+#A = a.get(Letter.Uppercase)
+#I = i.get(Letter.Uppercase)
+#assert A == 'A'
+#assert I == 'I'
 

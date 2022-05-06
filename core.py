@@ -386,6 +386,7 @@ class Object(metaclass=Type):
             pass
         name = f"{cls.__name__}{n}"
         sub = Type(name, cls)
+        #sub.memory = cls.memory
         cls.subclasses[n] = sub
         return sub
 

@@ -38,6 +38,8 @@ class Letter(Char):
     def __init__(self, letter):
         if letter not in self.LETTERS:
             raise TypeError(f"Not a letter: {letter!r}")
+
+        return
         if letter in self.UPPERCASE:
             self.set(self.IsLowercase, False)
             self.set(self.IsUppercase, True)
@@ -53,7 +55,6 @@ class Letter(Char):
 
     class Uppercase(Char): pass
     class Lowercase(Char): pass
-
 
 # Words
 
