@@ -10,7 +10,7 @@ import think
 
 import colors
 
-think.thought_dim(10_000)
+think.thought_dim(1024)
 
 # Words
 def score(self, return_atoms=False, reset_wrong=False):
@@ -172,4 +172,19 @@ while not perfect():
         encode_knowledge(object)
 
 print(f"The system is perfect.")
+
+for word in (a,b,c,d):
+    for n, letter in enumerate(word.object):
+        assert word.get(Letter[n]) == letter
+
+for sentence in (s,t,u,v):
+    for n, word in enumerate(sentence.object):
+        assert sentence.get(Word[n]) == word
+
+for sentence in (s,t,u,v):
+    for n, word in enumerate(sentence.object):
+        assert sentence.get(Word[n]) == word
+        word = Word(word)
+        for m, letter in enumerate(word.object):
+            assert word.get(Letter[m]) == letter
 
