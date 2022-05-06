@@ -225,23 +225,26 @@ class Type(type):
         pairs = list(zip(keys, sims))
         return sorted(pairs, key=lambda pair: pair[1], reverse=True)
 
-    def invert(cls, object):
+    def invert(cls, object, python=True):
         pairs = cls.memory.items()
         keys = [k for k,v in pairs]
         vals = [v.think() for k,v in pairs]
         sims = slow.pre_attention_l1(vals, object)
         idx  = int(jnp.argmax(sims))
         key  = list(keys)[idx]
-        return key
+        return key if python else cls(key)
 
     def project(cls, object):
         return slow.attention_l1(cls, object)
 
     def __array__(cls):
+        if len(cls.memory) == 0:
+            raise Exception(f"Attribute {cls!r} doesn't yet have any instances.")
         vects = [slow.to_vector(o) for o in cls.memory.values()]
         return jnp.stack(vects, axis=0)
-
     # begin experimental: for allowing all types to be memory types by default
+
+    primary = True
 
 
 class Object(metaclass=Type):
@@ -365,6 +368,10 @@ class Object(metaclass=Type):
     def _ensure_value_is_object(cls, value):
         if not isinstance(value, Object):
             value = cls(value)
+        for sup in cls.bases:
+            if sup is cls:
+                continue
+            sup(value.unwrap())
         return value
 
     def unwrap(self):
@@ -385,7 +392,7 @@ class Object(metaclass=Type):
         except KeyError:
             pass
         name = f"{cls.__name__}{n}"
-        sub = Type(name, cls)
+        sub = Type(name, cls, primary=False) # these are contextual types
         #sub.memory = cls.memory
         cls.subclasses[n] = sub
         return sub

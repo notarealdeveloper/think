@@ -15,8 +15,8 @@ __all__ = [
 
 import slow
 import string
-from think import Bool, Str, Type, Thought
-
+from think import Bool, Str
+from think import Object, Type
 
 # Letters
 
@@ -59,6 +59,7 @@ class Letter(Char):
 # Words
 
 class Word(Str):
+    Atom = Letter
     def __init__(self, letters):
         for n, letter in enumerate(letters):
             self.set(Letter[n], letter)
@@ -74,7 +75,7 @@ class Digit(Char):
 
 
 class Digits(Str):
-
+    Atom = Digit
     def __init__(self, digits):
         if not digits.isnumeric():
             raise TypeError(f"Not a numeric string: {digits!r}")
@@ -141,9 +142,13 @@ class Date(Str):
 
 # Sentences
 
-class Sentence(Str):
+class Sentence(Object): # this should be a List[Str]
+    Atom = Word
     def __init__(self, sentence):
-        self.words = sentence.split(' ')
-        for n, word in enumerate(self.words):
+        self.object = sentence.split(' ')
+        self.sentence = sentence
+        for n, word in enumerate(self.object):
             self.set(Word[n], word)
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.sentence})"
 
