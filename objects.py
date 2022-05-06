@@ -59,9 +59,8 @@ class Letter(Char):
 # Words
 
 class Word(Str):
-    Atom = Letter
-    def __init__(self, letters):
-        for n, letter in enumerate(letters):
+    def __init__(self, word):
+        for n, letter in enumerate(word):
             self.set(Letter[n], letter)
 
 
@@ -75,7 +74,6 @@ class Digit(Char):
 
 
 class Digits(Str):
-    Atom = Digit
     def __init__(self, digits):
         if not digits.isnumeric():
             raise TypeError(f"Not a numeric string: {digits!r}")
@@ -143,9 +141,8 @@ class Date(Str):
 # Sentences
 
 class Sentence(Object): # this should be a List[Str]
-    Atom = Word
     def __init__(self, sentence):
-        self.object = sentence.split(' ')
+        self.object = tuple(sentence.split(' '))
         self.sentence = sentence
         for n, word in enumerate(self.object):
             self.set(Word[n], word)

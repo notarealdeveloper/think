@@ -153,9 +153,9 @@ class Type(type):
             return cls.memory[obj]
         # self = super().__call__(obj, *args, **kwds)
         self = cls.__new__(cls, obj, *args, **kwds)
+        cls.memory[obj] = self
         if isinstance(self, cls):
             cls.__init__(self, obj, *args, **kwds)
-        cls.memory[obj] = self
 
         logger.debug(f"{S}Type.__call__ (exit):"
                      f"{S}cls={cls}"
@@ -367,6 +367,10 @@ class Object(metaclass=Type):
     @classmethod
     def _ensure_value_is_object(cls, value):
         if not isinstance(value, Object):
+            # don't call __init__, because we may want to self.set(cls, obj) in __init__!
+            # self = cls.__new__(cls, value)
+            # cls.memory[value] = self
+            # value = self
             value = cls(value)
         for sup in cls.bases:
             if sup is cls:
