@@ -324,25 +324,13 @@ class Object(metaclass=Type):
         thought = self.attrs.get(attr, Object(None))
         return thought if not hard else attr.invert(thought)
 
-    def getboth(self, attr, hard=False):
-        feel = self.getfeel(attr)
-        know = self.getknow(attr)
-        if not know:
-            thought = feel
-        else:
-            thought = slow.mix([feel, know])
-        return thought if not hard else attr.invert(thought)
-
     def get(self, attr, how='feel', hard=True):
         if how == 'feel':
             return self.getfeel(attr, hard=hard)
         elif how == 'know':
             return self.getknow(attr, hard=hard)
-        elif how == 'both':
-            return self.getboth(attr, hard=hard)
         else:
             raise ValueError(f"how: {how!r}")
-
         if hard:
             return attr.invert(thought)
         else:
