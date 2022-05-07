@@ -285,10 +285,9 @@ class Type(type):
         dir = sorted(set(dir))
         return dir
 
-    # begin experimental: for allowing all types to be memory types by default
-
     def instances(cls):
         instances = {}
+        instances |= cls.memory
         for base in cls.subs:
             instances |= base.memory
         return instances
