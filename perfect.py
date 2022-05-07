@@ -32,7 +32,7 @@ class Knowledge:
         self.object = object
         self.compute()
 
-    def compute(self):
+    def compute(self, reset_wrong=True):
 
         object = self.object
 
@@ -50,6 +50,14 @@ class Knowledge:
                 'know': value.object,
             }
             bit['true'] = bit['feel'] == bit['know']
+
+            if reset_wrong:
+                if bit['true']:
+                    bit['reset'] = False
+                else:
+                    object.setfeel(attr, value)
+                    bit['reset'] = True
+
             bits.append(bit)
 
         correct = [bit for bit in bits if bit['true']]
@@ -149,7 +157,6 @@ def encode_until_score(self, threshold=1.0, step_size=1e-2,
         LOG(f"no training needed for {self!r}, knowledge already encoded {K.score:.2%}")
         return self
 
-    LOG(K)
     LOG(f"training needed for {self!r}, knowledge encoded {K.score:.2%}, "
         f"will now train until {threshold:.2%}")
 
