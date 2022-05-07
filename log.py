@@ -26,7 +26,7 @@ def get_logger(name):
     logger = logging.getLogger(name)
 
     # set level
-    level = logging.WARNING
+    level = logging.INFO
     logger.setLevel(level)
 
     # create formatter

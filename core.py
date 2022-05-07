@@ -19,6 +19,7 @@ import abc
 import types
 import logging
 import numbers
+import logging
 import builtins
 import itertools
 import jax.numpy as jnp
@@ -30,6 +31,10 @@ from think import Thought, new_thought
 from think.internals import hybridmethod, metamethod
 from think.ops import Add, Sub, Mul, Div
 
+import think.perfect as think_perfect
+from think.perfect import Knowledge
+
+
 OBJECTS = {}
 TYPES   = {}
 
@@ -38,6 +43,9 @@ TYPES   = {}
 # consistent.
 DEFINE_OBJECTS_USING_CLASSES = True
 DEFINE_TYPES_USING_CLASSES = True
+
+# if this is set to True, then all types allow None as a value
+ALL_TYPES_NULLABLE = True
 
 logger = logging.getLogger(__name__)
 
@@ -153,9 +161,13 @@ class Type(type):
             return cls.memory[obj]
         # self = super().__call__(obj, *args, **kwds)
         self = cls.__new__(cls, obj, *args, **kwds)
-        cls.memory[obj] = self
         if isinstance(self, cls):
             cls.__init__(self, obj, *args, **kwds)
+
+        # use the key self.object in case the class author decided to set
+        # the .object attribute to something other than what was passed in.
+        # this is a fairly common occurrence, so this step is important
+        cls.memory[self.object] = self
 
         logger.debug(f"{S}Type.__call__ (exit):"
                      f"{S}cls={cls}"
@@ -260,8 +272,12 @@ class Object(metaclass=Type):
             bases = (object,)
             return type(cls)(name, bases, {})
 
-        if not isinstance(object, cls.object):
-            raise TypeError(f"object {object} is not of type {cls.object}")
+        if ALL_TYPES_NULLABLE:
+            if not isinstance(object, cls.object) and object is not None:
+                raise TypeError(f"object {object} is not of type {cls.object}")
+        else:
+            if not isinstance(object, cls.object):
+                raise TypeError(f"object {object} is not of type {cls.object}")
 
         try:
             return OBJECTS[(cls, object)]
@@ -401,14 +417,31 @@ class Object(metaclass=Type):
         cls.subclasses[n] = sub
         return sub
 
+    def reset_wrong(self):
+        for feeling in Knowledge(self):
+            if feeling['true']:
+                feeling['reset'] = False
+            else:
+                self.setfeel(attr, value)
+                feeling['reset'] = True
 
-# the solution to infinite regress is self reference.
+    encode_until_score  = think_perfect.encode_until_score
+    encode_until_loss   = think_perfect.encode_until_loss
+    encode              = think_perfect.encode
+    learn               = classmethod(think_perfect.learn)
+    perfect             = classmethod(think_perfect.perfect)
+    knowledge           = classmethod(think_perfect.knowledge)
+
+# In python:
+#
 # 1. type's type is type
 # 2. type's base is object
 # 3. object's base is object
 # 4. object's type is type
-# https://youtu.be/uOzdG3lwcB4?t=3209
-# (see the 30 seconds from 53:30 to 54:00)
+#
+# (see 53:30 to 54:00 here: https://youtu.be/uOzdG3lwcB4?t=3209)
+#
+# tl;dr: the solution to infinite regress is self reference.
 Type.type = Type
 Object.type = Type
 Type.base = Object
@@ -416,8 +449,6 @@ Object.base = Object
 
 
 # objects.py
-
-# from think.core import Object, Type
 
 __all__ += [
     'Bool',
@@ -460,9 +491,6 @@ else:
 
 # types.py
 
-# from think.core import Object, Type
-# from think.objects import Bool, Str, Int, Float, Bytes, Complex
-
 __all__ += [
     'BoolType',
     'StrType',
@@ -500,13 +528,21 @@ else:
     ComplexType = type('ComplexType', (Type,), {'base':Complex})
 
 
-# resolve the infinite loop by overwriting the metaclass pointer
-#Str.__class__       = StrType
-#Int.__class__       = IntType
-#Float.__class__     = FloatType
-#Bytes.__class__     = BytesType
-#Bool.__class__      = BoolType
-#Complex.__class__   = ComplexType
+
+__all__ += [
+    'learn',
+    'perfect',
+    'knowledge',
+]
+
+def learn(cls=Object):
+    return cls.learn()
+
+def perfect(cls=Object):
+    return cls.perfect()
+
+def knowledge(cls=Object):
+    return cls.knowledge()
 
 # thus ends the core
 # all else is commentary

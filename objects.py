@@ -9,12 +9,16 @@ __all__ = [
     'Year',
     'Month',
     'Day',
+    'Weekday',
     'Date',
     'Sentence',
 ]
 
-import slow
+import re
 import string
+import datetime
+
+import slow
 from think import Bool, Str
 from think import Object, Type
 
@@ -106,36 +110,101 @@ class Year(Str):
 
 
 class Month(Str):
-    names = {
-        'january', 'february', 'march',
-        'april', 'may', 'june', 'july',
-        'august', 'september', 'october',
-        'november', 'december',
-    }
-    @classmethod
-    def is_month_name(cls, str):
-        return str.lower() in cls.names
-
+    pass
 
 class Day(Str):
     pass
 
+class Weekday(Str):
+    INT_TO_NAME =  {1:'Monday', 2:'Tuesday', 3:'Wednesday',
+                    4:'Thursday', 5:'Friday', 6:'Saturday',
+                    7:'Sunday'}
+    NAME_TO_INT = {v:k for k,v in INT_TO_NAME.items()}
+    def __new__(cls, arg):
+        if isinstance(arg, int) and 1 <= arg <= 7:
+            object = cls.INT_TO_NAME[arg]
+        elif isinstance(arg, str) and arg in '1234567':
+            object = cls.INT_TO_NAME[int(arg)]
+        elif isinstance(arg, str) and arg in cls.NAME_TO_INT:
+            object = arg
+        else:
+            raise ValueError(arg)
+        self = super().__new__(cls, object)
+        return self
+
 
 class Date(Str):
+
     def __init__(self, date):
-        self.date = date
-        if len(date) == 4 and date.isnumeric():
-            attrs = {Year: date}
-        elif Month.is_month_name(date):
-            attrs = {Month: date}
-        elif '-' in date:
-            year, month, day = date.split('-')
-            attrs = {Year: year, Month: month, Day: day}
-        else:
-            raise ValueError(date)
-        self.attrs = attrs
-        for attr, value in self.attrs.items():
-            self.setfeel(attr, value)
+        data = self.parse(date)
+        if year := data.get('year'):
+            self.set(Year, year)
+        if month := data.get('month'):
+            self.set(Month, month)
+        if day := data.get('day'):
+            self.set(Day, day)
+        if weekday := data.get('weekday'):
+            self.set(Weekday, weekday)
+
+    @classmethod
+    def date_object_to_dict(cls, date):
+        d = {k: getattr(date, k) for k in ('year', 'month', 'day', 'weekday')}
+        if callable(d['weekday']): # for 2/3 methods, it's a function
+            d['weekday'] = d['weekday']()
+        d = {k:str(v) for k,v in d.items()}
+        length = {'year': 4, 'month': 2, 'day': 2, 'weekday': 1}
+        for k in d:
+            d[k] = d[k].zfill(length[k])
+        return d
+
+    @classmethod
+    def suspicious_year(cls, input, output):
+        this_year = datetime.date.today().year
+        return  output['year'] == this_year \
+        and     this_year not in re.findall(r'\d{4}', input)
+
+    @classmethod
+    def parse_with_timestring(cls, input):
+        import timestring
+        date = timestring.Date(input)
+        output = cls.date_object_to_dict(date)
+        if cls.suspicious_year(input, output):
+            # timestring gives the present year when no year is found
+            output['year'] = None
+            output['weekday'] = None
+        return output
+
+    @classmethod
+    def parse_with_dateparser(cls, input):
+        import dateparser
+        date = dateparser.parse(input)
+        output = cls.date_object_to_dict(date)
+        if cls.suspicious_year(input, output):
+            # dateparser gives the present year when no year is found
+            output['year'] = None
+            output['weekday'] = None
+        return output
+
+    @classmethod
+    def parse_with_datetime_module(cls, input):
+        date = datetime.date.fromisoformat(input)
+        output = cls.date_object_to_dict(date)
+        return output
+
+    def parse(cls, input):
+        try:
+            return cls.parse_with_timestring(input)
+        except:
+            pass
+        try:
+            return cls.parse_with_dateparser(input)
+        except:
+            pass
+        try:
+            return cls.parse_with_datetime_module(input)
+        except:
+            pass
+        raise ValueError(date)
 
 
 # Sentences
