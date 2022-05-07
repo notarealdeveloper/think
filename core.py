@@ -31,8 +31,7 @@ from think import Thought, new_thought
 from think.internals import hybridmethod, metamethod
 from think.ops import Add, Sub, Mul, Div
 
-import think.perfect as think_perfect
-from think.perfect import Knowledge
+from think import perfect
 
 
 OBJECTS = {}
@@ -499,19 +498,42 @@ class Object(metaclass=Type):
         return sub
 
     def reset_wrong(self):
-        for feeling in Knowledge(self):
-            if feeling['true']:
-                feeling['reset'] = False
-            else:
-                self.setfeel(attr, value)
-                feeling['reset'] = True
+        wrong = []
+        for attr, value in self.attrs.items():
+            feel = self.get(attr)
+            know = value.object
+            if feel != know:
+                wrong.append([attr, value])
+        for attr, value in wrong:
+            self.setfeel(attr, value)
 
-    encode_until_score  = think_perfect.encode_until_score
-    encode_until_loss   = think_perfect.encode_until_loss
-    encode              = think_perfect.encode
-    learn               = classmethod(think_perfect.learn)
-    perfect             = classmethod(think_perfect.perfect)
-    knowledge           = classmethod(think_perfect.knowledge)
+    def score(self, reset_wrong=False):
+        if not self.attrs:
+            return 1.0
+        right = []
+        wrong = []
+        for attr, value in self.attrs.items():
+            feel = self.get(attr)
+            know = value.object
+            if feel == know:
+                right.append([attr, value])
+            else:
+                wrong.append([attr, value])
+
+        # compute score before resetting anything, so it's pure
+        score = len(right)/len(self.attrs)
+
+        # now reset the wrong ones if asked
+        if reset_wrong:
+            for attr, value in wrong:
+                self.setfeel(attr, value)
+        return score
+
+
+    encode_until_score  = perfect.encode_until_score
+    encode_until_loss   = perfect.encode_until_loss
+    learn               = classmethod(perfect.learn)
+    perfect             = classmethod(perfect.perfect)
 
 # In python:
 #
@@ -613,7 +635,6 @@ else:
 __all__ += [
     'learn',
     'perfect',
-    'knowledge',
 ]
 
 def learn(cls=Object):
@@ -621,9 +642,6 @@ def learn(cls=Object):
 
 def perfect(cls=Object):
     return cls.perfect()
-
-def knowledge(cls=Object):
-    return cls.knowledge()
 
 # thus ends the core
 # all else is commentary
