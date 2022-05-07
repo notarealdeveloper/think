@@ -49,6 +49,36 @@ ALL_TYPES_NULLABLE = True
 
 logger = logging.getLogger(__name__)
 
+
+### since we need to store self.object in cls.memory,
+### we need hashable subclasses of unhashable builtin
+### python types, and the user shouldn't have to know
+### about these things.
+###
+### note: the hashes of python scalars are not constant
+### from one python process to another, so we need a
+### stronger form of serialization for the saving and
+### loading step. worst case scenario, we can just
+### pickle the damn things here, and recompute when
+### they change.
+class thinklist(list):
+    def __hash__(self):
+        return hash(tuple(self))
+
+class thinkdict(dict):
+    def __hash__(self):
+        return hash(tuple(self.items()))
+
+class thinkset(set):
+    def __hash__(self):
+        return hash(tuple(self))
+
+TYPE_PROMOTIONS = {
+    list: thinklist,
+    set: thinkset,
+    dict: thinkdict,
+}
+
 S = '\n * '
 
 class Type(type):
@@ -123,6 +153,12 @@ class Type(type):
         cls.thought = Thought()
         cls.kwds = kwds
         cls.subs = []
+        cls.contexts = {}
+
+        # list, set, dict:
+        if cls.object in TYPE_PROMOTIONS and not hasattr(cls, '__object__'):
+            cls.__object__ = TYPE_PROMOTIONS[cls.object]
+
         #TYPES[(meta, name, *bases)] = cls
         return cls
 
@@ -149,7 +185,7 @@ class Type(type):
         )
         return None
 
-    def __call__(cls, obj, *args, **kwds):
+    def __call__(cls, arg, *args, **kwds):
         logger.debug(f"{S}Type.__call__ (enter):"
                      f"{S}cls={cls}"
                      f"{S}args={args}"
@@ -157,17 +193,48 @@ class Type(type):
                      f"{S}cls_dict={cls.__dict__}"
         )
 
-        if obj in cls.memory:
-            return cls.memory[obj]
-        # self = super().__call__(obj, *args, **kwds)
-        self = cls.__new__(cls, obj, *args, **kwds)
+        # __object__
+        #
+        # the think-specific magic method __object__, if it exists,
+        # will be called before the arguments are passed to __new__.
+        # in this sense it is analogous to the python magic method
+        # __prepare__ in normal python metaclasses.
+        if hasattr(cls, '__object__'):
+            object = cls.__object__(arg, *args, **kwds)
+        else:
+            object = arg
+
+        if object in cls.memory:
+            return cls.memory[object]
+
+        self = cls.__new__(cls, object, *args, **kwds)
+
+        # __raw__
+        #
+        # the think-specific magic attribute __raw__ stores the raw argument
+        # that was passed to meta.__call__. This is useful in cases when the
+        # user defines __object__ to make a class accept polymorphic inputs,
+        # but still wants access to the raw argument that was passed.
+        # For example, if we have:
+        #
+        # class Sentence(List[Word]):
+        #
+        #     ...
+        #
+        #     def __repr__(self):
+        #         return f"Sentence({self.__raw__})"
+        #
+        # which we want to be able to instantiate by passing a string, not just a list
+        # of words, then that string will be stored in __raw__.
+        #
+        self.__raw__ = arg
         if isinstance(self, cls):
-            cls.__init__(self, obj, *args, **kwds)
+            cls.__init__(self, object, *args, **kwds)
 
         # use the key self.object in case the class author decided to set
         # the .object attribute to something other than what was passed in.
         # this is a fairly common occurrence, so this step is important
-        cls.memory[self.object] = self
+        cls.memory[object] = self
 
         logger.debug(f"{S}Type.__call__ (exit):"
                      f"{S}cls={cls}"
@@ -279,13 +346,13 @@ class Object(metaclass=Type):
             if not isinstance(object, cls.object):
                 raise TypeError(f"object {object} is not of type {cls.object}")
 
-        try:
-            return OBJECTS[(cls, object)]
-        except:
-            pass
+        #try:
+        #    return OBJECTS[(cls, object)]
+        #except:
+        #    pass
 
         self = builtins.object.__new__(cls)
-        OBJECTS[(cls, object)] = self
+        #OBJECTS[(cls, object)] = self
         self.object  = object
         self.attrs   = {}
         self.thought = Thought()
@@ -382,17 +449,20 @@ class Object(metaclass=Type):
 
     @classmethod
     def _ensure_value_is_object(cls, value):
-        if not isinstance(value, Object):
-            # don't call __init__, because we may want to self.set(cls, obj) in __init__!
-            # self = cls.__new__(cls, value)
-            # cls.memory[value] = self
-            # value = self
-            value = cls(value)
+        #if not isinstance(value, Object):
+        #    # don't call __init__, because we may want to self.set(cls, obj) in __init__!
+        #    # self = cls.__new__(cls, value)
+        #    # cls.memory[value] = self
+        #    # value = self
+        #    value = cls(value)
+        if isinstance(value, Object):
+            value = value.unwrap()
+        self = cls(value)
         for sup in cls.bases:
             if sup is cls:
                 continue
-            sup(value.unwrap())
-        return value
+            sup(value)
+        return self
 
     def unwrap(self):
         while hasattr(self, 'object'):
@@ -403,18 +473,29 @@ class Object(metaclass=Type):
     def ensure_unwrapped(cls, object):
         return cls.unwrap(object)
 
-    def __class_getitem__(cls, key):
+    @classmethod
+    def __class_getitem__(cls, item):
         """ This is how to handle sequences. """
+        # these are contextual types
         try:
-            return cls.contexts[key]
-        except AttributeError:
-            cls.contexts = {}
+            return cls.contexts[item]
         except KeyError:
             pass
-        name = f"{cls.__name__}[{key}]"
-        # these are contextual types
-        sub = Type(name, cls, primary=False, context=key)
-        cls.contexts[key] = sub
+        name = f"{cls.__name__}[{item}]"
+        if isinstance(item, Type):
+            # List[Str] is a subclass of List whose .Item is set to Str
+            sub = Type(name, cls, primary=False, Item=item)
+        elif isinstance(item, tuple) and len(item) == 2 \
+        and isinstance(item[0], Type) \
+        and isinstance(item[1], Type):
+            # Dict[Str, Int] is a subclass of Dict whose .Key is Str and .Value is Int
+            key, value = item
+            name = f"{cls.__name__}[{key}, {value}]]"
+            sub = Type(name, cls, primary=False, Key=key, Value=value)
+        else:
+            # List[3] is a subclass of List whose .item is set to 3
+            sub = Type(name, cls, primary=False, context=item)
+        cls.contexts[item] = sub
         return sub
 
     def reset_wrong(self):

@@ -16,7 +16,12 @@ __all__ = [
 import logging
 import jax.numpy as jnp
 from jax import vmap, value_and_grad
-from jax.experimental import optimizers
+try:
+    # jax optimizers are here in newer versions
+    from jax.example_libraries import optimizers
+except:
+    # jax optimizers are here in older versions
+    from jax.experimental import optimizers
 
 import fast
 import slow

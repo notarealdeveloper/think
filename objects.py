@@ -1,18 +1,32 @@
 #!/usr/bin/env python3
 
 __all__ = [
+    # strings
     'Char',
     'Letter',
+    'Word',
+    # numerals
     'Digit',
     'Digits',
-    'Word',
-    'WordAfter',
-    'WordBefore',
+    # time
     'Year',
     'Month',
     'Day',
     'Weekday',
     'Date',
+    # collections
+    'Item',
+    'Key',
+    'Value',
+    'List',
+    'Tuple',
+    'Set',
+    'Dict',
+    # data structures
+    'After',
+    'Before',
+    'LinkedList',
+    'DoublyLinkedList',
     'Sentence',
 ]
 
@@ -21,7 +35,7 @@ import string
 import datetime
 
 import slow
-from think import Bool, Str
+from think import Bool, Str, Int
 from think import Object, Type
 
 # Letters
@@ -122,7 +136,9 @@ class Weekday(Str):
                     4:'Thursday', 5:'Friday', 6:'Saturday',
                     7:'Sunday'}
     NAME_TO_INT = {v:k for k,v in INT_TO_NAME.items()}
-    def __new__(cls, arg):
+
+    @classmethod
+    def __object__(cls, arg):
         if isinstance(arg, int) and 1 <= arg <= 7:
             object = cls.INT_TO_NAME[arg]
         elif isinstance(arg, str) and arg in '1234567':
@@ -131,8 +147,7 @@ class Weekday(Str):
             object = arg
         else:
             raise ValueError(arg)
-        self = super().__new__(cls, object)
-        return self
+        return object
 
 
 class Date(Str):
@@ -210,6 +225,62 @@ class Date(Str):
 
 
 # Sequences
+class Len(Int):
+    pass
+
+
+class Item(Object):
+    """ For objects contained within other objects,
+        like the elements of a list, tuple, or set.
+    """
+    pass
+
+class Key(Object):
+    pass
+
+class Value(Object):
+    pass
+
+
+class Sequence(Object):
+    Item = Item
+
+    def __init__(self, seq):
+        for n in range(len(seq)):
+            self.set(self.Item[n], seq[n])
+        self.set(Len, len(seq))
+
+    def __getitem__(self, n):
+        return self.get(self.Item[n])
+
+    def __len__(self):
+        return self.get(Len)
+
+
+class Tuple(Sequence):
+    object = tuple
+
+class List(Sequence):
+    object = list
+
+class Set(Sequence):
+    object = set
+
+
+class Dict(Sequence):
+    object = dict
+    Key   = Key
+    Value = Value
+
+    def __init__(self, dict):
+        for n, (k,v) in enumerate(dict.items()):
+            self.set(self.Item[k], v)
+            self.set(self.Key[n], k)
+            self.set(self.Value[n], v)
+        self.set(Len, len(dict))
+
+
+# Linked Lists
 
 class After(Object):
     pass
@@ -217,24 +288,46 @@ class After(Object):
 class Before(Object):
     pass
 
-class WordAfter(Word, After):
+class Head(Object):
     pass
 
-class WordBefore(Word, Before):
-    pass
+class LinkedList(Object):
+
+    object = list
+
+    Head = Head
+    After = After
+    Before = Before
+
+    def __init__(self, list):
+        items = [*list, None]
+        self.set(self.Head, items[0])
+        for this, next in zip(items[:-1], items[+1:]):
+            self.set(self.After[this], next)
+
+
+class DoublyLinkedList(LinkedList):
+
+    def __init__(self, list):
+        self.set(self.Head, None)
+        items = [None, *list, None]
+        for this, next in zip(items[:-1], items[+1:]):
+            self.set(self.After[this], next)
+            self.set(self.Before[next], this)
 
 # Sentences
 
-class Sentence(Object): # this should be a List[Str]
-    def __init__(self, sentence):
-        self.object = tuple(sentence.split(' '))
-        self.sentence = sentence
-        for n, word in enumerate(self.object):
-            self.set(Word[n], word)
-        for prev, word in zip(self.object[:-1], self.object[+1:]):
-            self.set(WordAfter[prev], word)
-            self.set(WordBefore[word], prev)
+class Sentence(List[Word]):
+
+    @classmethod
+    def __object__(cls, str):
+        try:
+            import nltk
+            words = super().__object__(nltk.tokenize.word_tokenize(str))
+        except:
+            words = str.split(' ') # poor man's tokenizer, if we don't have nltk
+        return words
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.sentence})"
+        return f"{self.__class__.__name__}({self.__raw__})"
 

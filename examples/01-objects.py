@@ -8,11 +8,6 @@ from think import Year, Month, Day
 from think import Date
 import think
 
-# TODO: every Type needs to be a memory type, so it can be used as an attribute.
-# Maybe don't enforce this in the core, but it should be the default everywhere
-# else. Also, attributes can try to compress themselves by removing unnecessary
-# basis vectors if they can express some thoughts in terms of others.
-
 think.thought_dim(1024)
 
 # Words
