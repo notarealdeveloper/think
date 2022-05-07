@@ -30,8 +30,8 @@ import think
 from think import Thought, new_thought
 from think.internals import hybridmethod, metamethod
 from think.ops import Add, Sub, Mul, Div
-
-from think import perfect
+from think import perfect as think_perfect
+from think.pretty import colors
 
 
 OBJECTS = {}
@@ -320,9 +320,32 @@ class Type(type):
             raise Exception(f"Attribute {cls!r} doesn't yet have any instances.")
         vects = [slow.to_vector(o) for o in cls.memory.values()]
         return jnp.stack(vects, axis=0)
-    # begin experimental: for allowing all types to be memory types by default
 
     primary = True
+
+    # self training code for metaclasses
+    def perfect(cls):
+        for name, self in cls.instances().items():
+            if self.score() < 1.0:
+                return False
+        return True
+
+    def learn(cls):
+        while not cls.perfect():
+            for name, self in cls.instances().items():
+                think_perfect.learn_until_score(self, threshold=1.0)
+        if cls is not Object:
+            print(colors.white(f"{cls.name} is now perfect ✨"))
+        else:
+            print(colors.white(f"The system is now perfect ✨"))
+
+    def learn_until_loss(cls, *args, **kwds):
+        for name, self in cls.instances().items():
+            think_perfect.learn_until_loss(self, *args, **kwds)
+
+    def learn_until_score(cls, *args, **kwds):
+        for name, self in cls.instances().items():
+            think_perfect.learn_until_score(self, *args, **kwds)
 
 
 class Object(metaclass=Type):
@@ -397,6 +420,9 @@ class Object(metaclass=Type):
 
     def set(self, attr, value):
         value = attr._ensure_value_is_object(value)
+        # without the setfeel line, gradients are responsible for everything,
+        # and the system is MUCH less able to learn quickly and sometimes
+        # doesn't even converge.
         self.setfeel(attr, value)
         self.setknow(attr, value)
         return self
@@ -530,10 +556,18 @@ class Object(metaclass=Type):
         return score
 
 
-    encode_until_score  = perfect.encode_until_score
-    encode_until_loss   = perfect.encode_until_loss
-    learn               = classmethod(perfect.learn)
-    perfect             = classmethod(perfect.perfect)
+    learn_until_loss  = think_perfect.learn_until_loss
+    learn_until_score = think_perfect.learn_until_score
+
+    @metamethod
+    def perfect(self):
+        return self.score() == 1.0
+
+    @metamethod
+    def learn(self):
+        think_perfect.learn_until_score(self, threshold=1.0)
+        print(colors.white(f"{self} is now perfect ✨"))
+
 
 # In python:
 #
@@ -633,15 +667,12 @@ else:
 
 
 __all__ += [
-    'learn',
     'perfect',
+    'learn',
 ]
 
-def learn(cls=Object):
-    return cls.learn()
-
-def perfect(cls=Object):
-    return cls.perfect()
+perfect = Object.perfect
+learn   = Object.learn
 
 # thus ends the core
 # all else is commentary

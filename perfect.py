@@ -26,8 +26,6 @@ except:
 import fast
 import slow
 logger = logging.getLogger(__name__)
-from think.pretty import colors
-
 
 
 ##########################
@@ -46,13 +44,16 @@ grad_fn_self = value_and_grad(loss_fn)
 grad_fn_meta = value_and_grad(loss_fn, argnums=[0,1,2])
 
 
-def get_data_for_self_training(self):
-    attrs_and_values = list(self.attrs.items())
+def get_data_for_self_training(self, only_train_wrong=False):
     As = []
     vs = []
     attrs = []
     values = []
-    for attr, value in attrs_and_values:
+    for attr, value in self.attrs.items():
+        feel = self.get(attr)
+        know = value.object
+        if only_train_wrong and feel == know:
+            continue
         attrs.append(attr)
         values.append(value)
         A = slow.to_array(attr)
@@ -63,50 +64,64 @@ def get_data_for_self_training(self):
     return (self, t), (attrs, As), (values, vs)
 
 
-def encode_until_score(self, threshold=1.0, step_size=1e-2,
-                        optimizer=None, steps_per_update=100):
-
-    # no need to do anything for no-knowledge objects
-    if not self.attrs:
-        return self
-
-    if optimizer is None:
-        optimizer = optimizers.adam
+def learn_until_score(self, threshold=1.0, step_size=1e-2,
+                      optimizer=None, steps_per_update=100,
+                      only_train_wrong=True):
 
     # don't yammer about contextual types
-    LOG = print if type(self).primary else logger.debug
+    LOG = print # if type(self).primary else logger.debug
 
-    opt_init, opt_update, get_params = optimizer(step_size)
-
-    (self, t), (attrs, As), (values, vs) = get_data_for_self_training(self)
-
-    self.reset_wrong()
     score = self.score()
-
     if score >= threshold:
         LOG(f"no training needed for {self!r}, knowledge already encoded {score:.2%}")
         return self
 
-    LOG(f"training needed for {self!r}, knowledge encoded {score:.2%}, "
-        f"will now train until {threshold:.2%}")
+    loop = 0
+    num_proj = 0
+    num_grad = 0
 
-    loss = loss_fn(t, As, vs)
-    opt_state = opt_init(t)
+    while True:
+        # train with projections
+        self.reset_wrong()
+        score = self.score()
+        num_proj += 1
 
-    while score < threshold:
+        if score >= threshold:
+            LOG(f"{self!r}: projection got it: (projs={num_proj} grads={num_grad})")
+            return self
+
+        # train with gradients
+        if loop == 0:
+            LOG(f"training needed for {self!r}, knowledge encoded {score:.2%}, "
+                f"will now train until {threshold:.2%}")
+            (self, t), (attrs, As), (values, vs) = \
+                get_data_for_self_training(self, only_train_wrong)
+            if optimizer is None:
+                optimizer = optimizers.adam
+            opt_init, opt_update, get_params = optimizer(step_size)
+            opt_state = opt_init(t)
+
         for n in range(steps_per_update):
             loss, grads = grad_fn_self(t, As, vs)
             opt_state = opt_update(0, grads, opt_state)
             t = get_params(opt_state)
+        num_grad += 1
         self.rethink(t)
-        self.reset_wrong()
+
         score = self.score()
-        LOG(f"{self!r}: encoded {score:.2%} of knowledge, "
-            f"desired {threshold:.2%} (loss: {loss})")
+        if score >= threshold:
+            LOG(f"{self!r}: gradients got it: (projs={num_proj} grads={num_grad})")
+            # note: these are still naive projections
+            return self
+
+        LOG(f"{self!r}: end of loop {loop}. {score:.2%} of knowledge encoded, "
+            f"desired {threshold:.2%} (loss={loss}, projs={num_proj} grads={num_grad})")
+
+        loop += 1
     return self
 
 
-def encode_until_loss(self, threshold=1e-1, step_size=1e-2, optimizer=None):
+def learn_until_loss(self, threshold=1e-1, step_size=1e-2, optimizer=None):
 
     # no need to do anything for no-knowledge objects
     if not self.attrs:
@@ -138,16 +153,4 @@ def encode_until_loss(self, threshold=1e-1, step_size=1e-2, optimizer=None):
     self.rethink(t)
     return self
 
-
-def learn(cls):
-    while not perfect(cls):
-        for name, self in cls.instances().items():
-            self.encode_until_score(threshold=1.0)
-    print(colors.white(f"The system is now perfect ✨"))
-
-def perfect(cls):
-    for name, self in cls.instances().items():
-        if self.score() < 1.0:
-            return False
-    return True
 
