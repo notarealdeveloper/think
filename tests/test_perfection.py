@@ -5,6 +5,7 @@ import pytest
 import think
 from think import Object, Str
 from think import Char, Letter, Word, Sentence
+from think import WordAfter, WordBefore
 from think import Digit, Digits
 from think import Year, Month, Day
 from think import Date
@@ -58,6 +59,9 @@ def test_perfection():
             word = Word(word)
             for m, letter in enumerate(word.object):
                 assert word.get(Letter[m]) == letter
+
+    assert s.get(WordAfter['fucking']) == 'brain'
+    assert s.get(WordAfter['brain']) == 'fucking'
 
     for date in (d1,d2,d3):
         year, month, day = date.object.split('-')

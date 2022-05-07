@@ -6,6 +6,8 @@ __all__ = [
     'Digit',
     'Digits',
     'Word',
+    'WordAfter',
+    'WordBefore',
     'Year',
     'Month',
     'Day',
@@ -207,6 +209,20 @@ class Date(Str):
         raise ValueError(date)
 
 
+# Sequences
+
+class After(Object):
+    pass
+
+class Before(Object):
+    pass
+
+class WordAfter(Word, After):
+    pass
+
+class WordBefore(Word, Before):
+    pass
+
 # Sentences
 
 class Sentence(Object): # this should be a List[Str]
@@ -215,6 +231,10 @@ class Sentence(Object): # this should be a List[Str]
         self.sentence = sentence
         for n, word in enumerate(self.object):
             self.set(Word[n], word)
+        for prev, word in zip(self.object[:-1], self.object[+1:]):
+            self.set(WordAfter[prev], word)
+            self.set(WordBefore[word], prev)
+
     def __repr__(self):
         return f"{self.__class__.__name__}({self.sentence})"
 
