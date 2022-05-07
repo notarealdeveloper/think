@@ -403,18 +403,18 @@ class Object(metaclass=Type):
     def ensure_unwrapped(cls, object):
         return cls.unwrap(object)
 
-    def __class_getitem__(cls, n):
+    def __class_getitem__(cls, key):
         """ This is how to handle sequences. """
         try:
-            return cls.subclasses[n]
+            return cls.contexts[key]
         except AttributeError:
-            cls.subclasses = {}
+            cls.contexts = {}
         except KeyError:
             pass
-        name = f"{cls.__name__}{n}"
-        sub = Type(name, cls, primary=False) # these are contextual types
-        #sub.memory = cls.memory
-        cls.subclasses[n] = sub
+        name = f"{cls.__name__}[{key}]"
+        # these are contextual types
+        sub = Type(name, cls, primary=False, context=key)
+        cls.contexts[key] = sub
         return sub
 
     def reset_wrong(self):
