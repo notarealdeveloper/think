@@ -65,7 +65,7 @@ def get_data_for_self_training(self, only_train_wrong=False):
 
 
 def learn_until_score(self, threshold=1.0, step_size=1e-2,
-                      optimizer=None, steps_per_update=100,
+                      optimizer=None, steps_per_update=20,
                       only_train_wrong=True):
 
     # don't yammer about contextual types
@@ -121,7 +121,8 @@ def learn_until_score(self, threshold=1.0, step_size=1e-2,
     return self
 
 
-def learn_until_loss(self, threshold=1e-1, step_size=1e-2, optimizer=None):
+def learn_until_loss(self, threshold=1e-1, step_size=1e-3, optimizer=None,
+                    steps_per_update=20):
 
     # no need to do anything for no-knowledge objects
     if not self.attrs:
@@ -135,7 +136,7 @@ def learn_until_loss(self, threshold=1e-1, step_size=1e-2, optimizer=None):
 
     opt_init, opt_update, get_params = optimizer(step_size)
 
-    (self, t), (attrs, As), (values, vs) = get_data_for_self_training(self)
+    (self, t), (attrs, As), (values, vs) = get_data_for_self_training(self, only_train_wrong)
 
     loss = loss_fn(t, As, vs)
     if loss <= threshold:
@@ -146,11 +147,12 @@ def learn_until_loss(self, threshold=1e-1, step_size=1e-2, optimizer=None):
 
     opt_state = opt_init(t)
     while loss > threshold:
-        loss, grads = grad_fn_self(t, As, vs)
-        opt_state = opt_update(0, grads, opt_state)
-        t = get_params(opt_state)
+        for n in range(steps_per_update):
+            loss, grads = grad_fn_self(t, As, vs)
+            opt_state = opt_update(0, grads, opt_state)
+            t = get_params(opt_state)
+        self.rethink(t)
         LOG(f"{self!r}: encoded knowledge to loss: {loss}")
-    self.rethink(t)
     return self
 
 
