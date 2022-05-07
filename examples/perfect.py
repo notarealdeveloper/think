@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 
-from slow import cos
-from think.core import Object, Str
+import think
+from think import Object, Str
 from think import Char, Letter, Word, Sentence
 from think import Digit, Digits
 from think import Year, Month, Day
 from think import Date
-import think
+
+
+# Example of training a system until it can
+# perfectly encode all the knowledge it has
 
 think.thought_dim(1024)
 
-# End of self training code
-
-# Here's an example:
 a = Word('supercalifragilisticexpialidocious')
 b = Word('antidisestablishementarianism')
 c = Word('cupcake')
@@ -37,7 +37,8 @@ think.learn()
 
 assert think.perfect()
 
-# what we get from a perfect system
+# what we get from a perfectly trained system
+
 for word in (a,b,c,d):
     for n, letter in enumerate(word.object):
         assert word.get(Letter[n]) == letter
