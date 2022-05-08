@@ -13,6 +13,7 @@
 __all__ = [
     'Object',
     'Type',
+    'IsInstance',
 ]
 
 import abc
@@ -179,9 +180,10 @@ class Type(type):
                      f"{S}bases={bases}"
                      f"{S}dict={dict}"
                      f"{S}kwds={kwds}"
-                     f"\n"
                      f"{S}cls_dict={cls.__dict__}"
+                     f"\n"
         )
+
         return None
 
     def __call__(cls, arg, *args, **kwds):
@@ -206,6 +208,7 @@ class Type(type):
         if object in cls.memory:
             return cls.memory[object]
 
+        # make the instance
         self = cls.__new__(cls, object, *args, **kwds)
 
         # __raw__
@@ -243,41 +246,67 @@ class Type(type):
                      f"{S}self={self}"
                      f"\n"
         )
+
+    # <experimental Instance property>
+
+        # experimental: resolving the tension between the class level thoughts idea
+        # and the general theme of setattr by implementing "isinstance" using setattr.
+        if cls.primary:
+            for base in cls.bases:
+                if base is Object: continue
+                self.set(IsInstance[base], True)
         return self
 
-    @metamethod
+    # </experimental Instance property>
+
     def mro(cls):
         return type.mro(cls)
+
+    def __repr__(cls):
+        return f"{cls.__qualname__}"
 
     __module__ = None
     def __init_subclass__(meta):
         meta.__module__ = None
 
     def think(cls):
-        t = cls.thought
-        Ts = [base.thought for base in cls.bases]
-        if not Ts:
-            return t.think()
-        else:
-            T = slow.mix(Ts)
-            return slow.mix([T, t])
+        # NOTE: each object's knowledge of its type and position in the hierarchy
+        # is now accomplished MUCH more intelligently by performing:
+        #
+        # self.set(IsInstance[base], True)
+        #
+        # for base in bases, in the metaclass __call__ when self is created.
+        #
+        # The property of "being an instance of a class" is now just an attribute,
+        # and it's treated as part of the object's knowledge, just like anything else.
+        #
+        #t = cls.thought
+        #Ts = [base.thought for base in cls.bases]
+        #if not Ts:
+        #    return t.think()
+        #else:
+        #    T = slow.mix(Ts)
+        #    return slow.mix([T, t])
+        #    #return slow.mean([*Ts, t])
+        return cls.thought.think()
 
     def rethink(cls, t):
         cls.thought.rethink(t)
         return cls
 
-    def name(cls, name=None):
-        if name is None:
-            return cls.__qualname__
-        else:
-            cls.__qualname__ = name
-        return cls
+    #def name(cls, name=None):
+    #    if name is None:
+    #        return cls.__qualname__
+    #    else:
+    #        cls.__qualname__ = name
+    #    return cls
 
     def __dir__(cls):
-        # dir normally contains keys from:
+        # for normal object, dir contains keys from:
         # * self.__dict__
         # * cls.__dict__ for cls in self.__class__.mro()
-        # for a class produced by a metaclass, this should be:
+        # so if we want classes to behave like normal objects w.r.t. tab completion,
+        # the __dir__ for a class produced by a metaclass should be:
         self_dir  = [list(cls.__dict__)]
         base_dirs = [list(base.__dict__) for base in cls.mro()]
         all_dirs  = self_dir + base_dirs
@@ -291,6 +320,12 @@ class Type(type):
         for base in cls.subs:
             instances |= base.memory
         return instances
+
+    primary = True
+
+    ######################################
+    ### plumbing for getattr / setattr ###
+    ######################################
 
     def similarities(cls, object):
         print('similarities called')
@@ -320,9 +355,9 @@ class Type(type):
         vects = [slow.to_vector(o) for o in cls.memory.values()]
         return jnp.stack(vects, axis=0)
 
-    primary = True
-
-    # self training code for metaclasses
+    ####################################
+    ### self training code for types ###
+    ####################################
     def perfect(cls):
         for name, self in cls.instances().items():
             if self.score() < 1.0:
@@ -367,13 +402,7 @@ class Object(metaclass=Type):
             if not isinstance(object, cls.object):
                 raise TypeError(f"object {object} is not of type {cls.object}")
 
-        #try:
-        #    return OBJECTS[(cls, object)]
-        #except:
-        #    pass
-
         self = builtins.object.__new__(cls)
-        #OBJECTS[(cls, object)] = self
         self.object  = object
         self.attrs   = {}
         self.thought = Thought()
@@ -407,18 +436,18 @@ class Object(metaclass=Type):
         return self
 
     def setfeel(self, attr, value):
-        value = attr._ensure_value_is_object(value)
+        value = attr.ensure_thinkable(value)
         t = slow.setattr(attr, self, value)
         self.rethink(t)
         return self
 
     def setknow(self, attr, value):
-        value = attr._ensure_value_is_object(value)
+        value = attr.ensure_thinkable(value)
         self.attrs[attr] = value
         return self
 
     def set(self, attr, value):
-        value = attr._ensure_value_is_object(value)
+        value = attr.ensure_thinkable(value)
         # without the setfeel line, gradients are responsible for everything,
         # and the system is MUCH less able to learn quickly and sometimes
         # doesn't even converge.
@@ -454,6 +483,9 @@ class Object(metaclass=Type):
         return type(self) == type(other) and self.object == other.object
 
     def __repr__(self):
+        return colors.blue(f"{self.object}")
+
+    def __str__(self):
         return f"{self.__class__.__name__}({self.object})"
 
     def __bool__(self):
@@ -471,30 +503,28 @@ class Object(metaclass=Type):
     def __truediv__(self, other):
         return Div(self, other)
 
-    @classmethod
-    def _ensure_value_is_object(cls, value):
-        #if not isinstance(value, Object):
-        #    # don't call __init__, because we may want to self.set(cls, obj) in __init__!
-        #    # self = cls.__new__(cls, value)
-        #    # cls.memory[value] = self
-        #    # value = self
-        #    value = cls(value)
-        if isinstance(value, Object):
-            value = value.unwrap()
-        self = cls(value)
-        for sup in cls.bases:
-            if sup is cls:
-                continue
-            sup(value)
-        return self
-
     def unwrap(self):
         while hasattr(self, 'object'):
             self = self.object
         return self
 
     @classmethod
-    def ensure_unwrapped(cls, object):
+    def ensure_thinkable(cls, value):
+        if isinstance(value, Object):
+            value = value.unwrap()
+        self = cls(value)
+        # I thought this now happened much more intelligently in Type.__call__,
+        # but the "perfection" test actually fails without it. Understand this.
+        for sup in cls.bases:
+            if sup is cls:
+                continue
+            #if not sup.primary:
+            #    continue
+            sup(value)
+        return self
+
+    @classmethod
+    def ensure_unthinkable(cls, object):
         return cls.unwrap(object)
 
     @classmethod
@@ -615,7 +645,6 @@ if DEFINE_OBJECTS_USING_CLASSES:
     class Complex(Object):
         object = complex
 
-
 else:
     Str     = Type('Str',     Object, object=str)
     Int     = Type('Int',     Object, object=int)
@@ -624,6 +653,8 @@ else:
     Float   = Type('Float',   Object, object=float)
     Complex = Type('Complex', Object, object=complex)
 
+class IsInstance(Bool):
+    pass
 
 # types.py
 
