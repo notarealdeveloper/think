@@ -31,7 +31,7 @@ import think
 from think import Thought, new_thought
 from think.internals import hybridmethod, metamethod
 from think.ops import Add, Sub, Mul, Div
-from think import perfect as think_perfect
+from think import gradients
 from think.pretty import colors
 
 
@@ -154,6 +154,7 @@ class Type(type):
         cls.kwds = kwds
         cls.subs = []
         cls.contexts = {}
+        cls.memory = {}
 
         # list, set, dict:
         if cls.object in TYPE_PROMOTIONS and not hasattr(cls, '__object__'):
@@ -172,8 +173,14 @@ class Type(type):
                      f"{S}cls_dict={cls.__dict__}"
         )
         super().__init__(name, bases, dict)
-        # Experimental: all types are memory types
-        cls.memory = {}
+
+        if hasattr(cls, '__instances__'):
+            assert isinstance(cls.__instances__, (tuple, list, set))
+            for o in cls.__instances__:
+                assert not isinstance(o, Object)
+                cls(o)
+            del cls.__instances__
+
         logger.debug(f"{S}Type.__init__ (exit):"
                      f"{S}cls={cls}"
                      f"{S}name={name}"
@@ -270,36 +277,11 @@ class Type(type):
         meta.__module__ = None
 
     def think(cls):
-        # NOTE: each object's knowledge of its type and position in the hierarchy
-        # is now accomplished MUCH more intelligently by performing:
-        #
-        # self.set(IsInstance[base], True)
-        #
-        # for base in bases, in the metaclass __call__ when self is created.
-        #
-        # The property of "being an instance of a class" is now just an attribute,
-        # and it's treated as part of the object's knowledge, just like anything else.
-        #
-        #t = cls.thought
-        #Ts = [base.thought for base in cls.bases]
-        #if not Ts:
-        #    return t.think()
-        #else:
-        #    T = slow.mix(Ts)
-        #    return slow.mix([T, t])
-        #    #return slow.mean([*Ts, t])
         return cls.thought.think()
 
     def rethink(cls, t):
         cls.thought.rethink(t)
         return cls
-
-    #def name(cls, name=None):
-    #    if name is None:
-    #        return cls.__qualname__
-    #    else:
-    #        cls.__qualname__ = name
-    #    return cls
 
     def __dir__(cls):
         # for normal object, dir contains keys from:
@@ -337,14 +319,14 @@ class Type(type):
         pairs = list(zip(keys, sims))
         return sorted(pairs, key=lambda pair: pair[1], reverse=True)
 
-    def invert(cls, object, python=True):
+    def invert(cls, object):
         pairs = cls.memory.items()
         keys = [k for k,v in pairs]
         vals = [v.think() for k,v in pairs]
-        sims = slow.pre_attention_l1(vals, object)
+        sims = slow.dots(vals, object) # quicker version of slow.pre_attention_l1(vals, object)
         idx  = int(jnp.argmax(sims))
         key  = list(keys)[idx]
-        return key if python else cls(key)
+        return key
 
     def project(cls, object):
         return slow.attention_l1(cls, object)
@@ -352,7 +334,7 @@ class Type(type):
     def __array__(cls):
         if len(cls.memory) == 0:
             raise Exception(f"Attribute {cls!r} doesn't yet have any instances.")
-        vects = [slow.to_vector(o) for o in cls.memory.values()]
+        vects = [o.__array__() for o in cls.memory.values()]
         return jnp.stack(vects, axis=0)
 
     ####################################
@@ -364,10 +346,10 @@ class Type(type):
                 return False
         return True
 
-    def learn(cls):
+    def learn(cls, *args, **kwds):
         while not cls.perfect():
             for name, self in cls.instances().items():
-                think_perfect.learn_until_score(self, threshold=1.0)
+                gradients.learn_until_score(self, threshold=1.0, *args, **kwds)
         if cls is not Object:
             print(colors.white(f"{cls.name} is now perfect ✨"))
         else:
@@ -375,11 +357,11 @@ class Type(type):
 
     def learn_until_loss(cls, *args, **kwds):
         for name, self in cls.instances().items():
-            think_perfect.learn_until_loss(self, *args, **kwds)
+            gradients.learn_until_loss(self, *args, **kwds)
 
     def learn_until_score(cls, *args, **kwds):
         for name, self in cls.instances().items():
-            think_perfect.learn_until_score(self, *args, **kwds)
+            gradients.learn_until_score(self, *args, **kwds)
 
 
 class Object(metaclass=Type):
@@ -470,17 +452,19 @@ class Object(metaclass=Type):
             return self.getknow(attr, hard=hard)
         else:
             raise ValueError(f"how: {how!r}")
-        if hard:
-            return attr.invert(thought)
-        else:
-            return thought
+
+    def Get(self, attr):
+        return attr(self.getfeel(attr, hard=True))
 
     @metamethod
     def __array__(self):
         return self.think()
 
     def __eq__(self, other):
-        return type(self) == type(other) and self.object == other.object
+        if not isinstance(other, Object):
+            return type(self) == type(other) and self.object == other.object
+        else:
+            return type(self.object) == type(other) and self.object == other
 
     def __repr__(self):
         return colors.blue(f"{self.object}")
@@ -513,14 +497,11 @@ class Object(metaclass=Type):
         if isinstance(value, Object):
             value = value.unwrap()
         self = cls(value)
-        # I thought this now happened much more intelligently in Type.__call__,
-        # but the "perfection" test actually fails without it. Understand this.
+
         for sup in cls.bases:
-            if sup is cls:
-                continue
-            #if not sup.primary:
-            #    continue
-            sup(value)
+            if sup.primary:
+                sup(value)
+                break # good, this works, that solves the mystery
         return self
 
     @classmethod
@@ -585,8 +566,8 @@ class Object(metaclass=Type):
         return score
 
 
-    learn_until_loss  = think_perfect.learn_until_loss
-    learn_until_score = think_perfect.learn_until_score
+    learn_until_loss  = gradients.learn_until_loss
+    learn_until_score = gradients.learn_until_score
 
     @metamethod
     def perfect(self):
@@ -594,7 +575,7 @@ class Object(metaclass=Type):
 
     @metamethod
     def learn(self):
-        think_perfect.learn_until_score(self, threshold=1.0)
+        gradients.learn_until_score(self, threshold=1.0)
         print(colors.white(f"{self} is now perfect ✨"))
 
 
@@ -625,6 +606,7 @@ __all__ += [
     'Complex',
 ]
 
+
 if DEFINE_OBJECTS_USING_CLASSES:
     class Str(Object):
         object = str
@@ -648,13 +630,15 @@ if DEFINE_OBJECTS_USING_CLASSES:
 else:
     Str     = Type('Str',     Object, object=str)
     Int     = Type('Int',     Object, object=int)
-    Bool    = Type('Bool',    Int,    object=bool) # bool.mro() is [bool, int, object]
+    Bool    = Type('Bool',    Int,    object=bool)
     Bytes   = Type('Bytes',   Object, object=bytes)
     Float   = Type('Float',   Object, object=float)
     Complex = Type('Complex', Object, object=complex)
 
+
 class IsInstance(Bool):
-    pass
+    ...
+
 
 # types.py
 

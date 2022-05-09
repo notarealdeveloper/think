@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
 __all__ = [
+    # bits
+    'Len',
+    'Bit',
+    'Binary',
     # strings
     'Char',
     'Letter',
@@ -37,6 +41,22 @@ import datetime
 import slow
 from think import Bool, Str, Int
 from think import Object, Type
+
+
+# Bits
+class Len(Int):
+    pass
+
+class Bit(Str):
+    __instances__ = ('0', '1')
+
+class Binary(Int):
+    def __init__(self, n):
+        encoding = bin(n)[2:]
+        for n, bit in enumerate(reversed(encoding)):
+            self.set(Bit[n], bit)
+        self.set(Len, len(encoding))
+
 
 # Letters
 
@@ -225,9 +245,6 @@ class Date(Str):
 
 
 # Sequences
-class Len(Int):
-    pass
-
 
 class Item(Object):
     """ For objects contained within other objects,
@@ -292,9 +309,7 @@ class Head(Object):
     pass
 
 class LinkedList(Object):
-
     object = list
-
     Head = Head
     After = After
     Before = Before

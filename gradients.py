@@ -1,16 +1,10 @@
 #!/usr/bin/env python3
 
 """
-    Take a brain and make it perfect.
+    Gradient based learning.
 """
 
 __all__ = [
-    # this file contains gradient based learning,
-    # and its internals should be segregated from
-    # the rest of the system at all costs.
-    #
-    # anything you want from this module,
-    # you pull it out explicitly.
 ]
 
 import logging
@@ -41,7 +35,7 @@ def loss_fn(t, As, vs):
 
 
 grad_fn_self = value_and_grad(loss_fn)
-grad_fn_meta = value_and_grad(loss_fn, argnums=[0,1,2])
+grad_fn_all  = value_and_grad(loss_fn, argnums=[0,1,2])
 
 
 def get_data_for_self_training(self, only_train_wrong=False):
@@ -60,13 +54,12 @@ def get_data_for_self_training(self, only_train_wrong=False):
         v = value.think()
         vs.append(v)
         As.append(A)
-    t = self.think()
-    return (self, t), (attrs, As), (values, vs)
+    return (attrs, As), (values, vs)
 
 
-def learn_until_score(self, threshold=1.0, step_size=1e-2,
+def learn_until_score(self, threshold=1.0, step_size=1e-3,
                       optimizer=None, steps_per_update=20,
-                      only_train_wrong=True):
+                      only_train_wrong=False, max_steps=float('inf')):
 
     # don't yammer about contextual types
     LOG = print # if type(self).primary else logger.debug
@@ -76,11 +69,11 @@ def learn_until_score(self, threshold=1.0, step_size=1e-2,
         LOG(f"no training needed for {self!r}, knowledge already encoded {score:.2%}")
         return self
 
-    loop = 0
+    steps = 0
     num_proj = 0
     num_grad = 0
 
-    while True:
+    while steps < max_steps:
         # train with projections
         self.reset_wrong()
         score = self.score()
@@ -91,11 +84,11 @@ def learn_until_score(self, threshold=1.0, step_size=1e-2,
             return self
 
         # train with gradients
-        if loop == 0:
+        if steps == 0:
             LOG(f"training needed for {self!r}, knowledge encoded {score:.2%}, "
                 f"will now train until {threshold:.2%}")
-            (self, t), (attrs, As), (values, vs) = \
-                get_data_for_self_training(self, only_train_wrong)
+            t = self.think()
+            (attrs, As), (values, vs) = get_data_for_self_training(self, only_train_wrong)
             if optimizer is None:
                 optimizer = optimizers.adam
             opt_init, opt_update, get_params = optimizer(step_size)
@@ -114,15 +107,17 @@ def learn_until_score(self, threshold=1.0, step_size=1e-2,
             # note: these are still naive projections
             return self
 
-        LOG(f"{self!r}: end of loop {loop}. {score:.2%} of knowledge encoded, "
+        LOG(f"{self!r}: finished {steps} steps. {score:.2%} of knowledge encoded, "
             f"desired {threshold:.2%} (loss={loss}, projs={num_proj} grads={num_grad})")
 
-        loop += 1
+        steps += 1
+    LOG(f"{self!r}: reached max steps, moving on.")
     return self
 
 
-def learn_until_loss(self, threshold=1e-1, step_size=1e-3, optimizer=None,
-                    steps_per_update=20):
+def learn_until_loss(self, threshold, step_size=1e-3,
+                     optimizer=None, steps_per_update=20,
+                     only_train_wrong=False, max_steps=float('inf')):
 
     # no need to do anything for no-knowledge objects
     if not self.attrs:
@@ -136,7 +131,8 @@ def learn_until_loss(self, threshold=1e-1, step_size=1e-3, optimizer=None,
 
     opt_init, opt_update, get_params = optimizer(step_size)
 
-    (self, t), (attrs, As), (values, vs) = get_data_for_self_training(self, only_train_wrong)
+    t = self.think()
+    (attrs, As), (values, vs) = get_data_for_self_training(self, only_train_wrong)
 
     loss = loss_fn(t, As, vs)
     if loss <= threshold:
@@ -146,13 +142,71 @@ def learn_until_loss(self, threshold=1e-1, step_size=1e-3, optimizer=None,
     LOG(f"training needed for {self!r}, loss is {loss}, will now train until {threshold}")
 
     opt_state = opt_init(t)
-    while loss > threshold:
+    steps = 0
+    while steps < max_steps:
         for n in range(steps_per_update):
             loss, grads = grad_fn_self(t, As, vs)
             opt_state = opt_update(0, grads, opt_state)
             t = get_params(opt_state)
+            steps += 1
+            if loss < threshold:
+                LOG(f"{self!r}: training finished, encoded knowledge to loss: {loss}")
         self.rethink(t)
+        self.reset_wrong()
         LOG(f"{self!r}: encoded knowledge to loss: {loss}")
+    LOG(f"{self!r}: reached max steps, moving on.")
     return self
 
+
+
+def learn(cls, threshold, lr=1e-3,
+          optimizer=None, steps_per_update=20,
+          max_steps=float('inf')):
+
+    if optimizer is None:
+        optimizer = optimizers.adam
+    opt_init, opt_update, get_params = optimizer(lr)
+
+    t = self.think()
+
+    from collections import defaultdict
+    objects = {}
+    for name, object in Ticker.instances().items():
+        attrs   = {}
+        values  = {}
+        for attr, value in object.attrs.items():
+            attrs[(attr.name, tuple(k for k in attr.memory.keys()))] = attr.__array__()
+            values[(value.name, value.object)] = value.__array__()
+        objects[object.name, object.object] = {
+            'self': object.__array__(),
+            'attrs': attrs,
+            'values': values,
+        }
+
+    object_keys = list(objects.keys())
+    object_vals = jnp.stack(list(objects.values()))
+    attr_keys = list(attrs.keys())
+    attr_vals = jnp.stack(list(attrs.values()))
+    value_keys = list(values.keys())
+    value_vals = jnp.stack(list(values.values()))
+
+    loss = loss_fn(t, As, vs)
+    if loss <= threshold:
+        print(f"no training needed for {self!r}, loss is already {loss}")
+        return self
+
+    print(f"training needed for {self!r}, loss is {loss}, will now train until {threshold}")
+
+    opt_state = opt_init(t)
+    steps = 0
+    while loss > threshold and steps < max_steps:
+        for n in range(steps_per_update):
+            loss, grads = grad_fn_self(t, As, vs)
+            opt_state = opt_update(0, grads, opt_state)
+            t = get_params(opt_state)
+            steps += 1
+        self.rethink(t)
+        self.reset_wrong()
+        LOG(f"{self!r}: encoded knowledge to loss: {loss}")
+    return self
 

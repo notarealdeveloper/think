@@ -42,7 +42,9 @@ def get_logger(name):
     logger.addHandler(sh)
 
     # create file handler and set level to debug
-    if file := os.getenv("THINK"):
+    if dir := os.getenv("THINK"):
+        os.makedirs(dir, exist_ok=True)
+        file = f"{dir}/think.log"
         fh = logging.FileHandler(file)
         fh.setLevel(logging.DEBUG)
         fh.setFormatter(formatter)
