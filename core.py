@@ -179,7 +179,6 @@ class Type(type):
             for o in cls.__instances__:
                 assert not isinstance(o, Object)
                 cls(o)
-            del cls.__instances__
 
         logger.debug(f"{S}Type.__init__ (exit):"
                      f"{S}cls={cls}"
