@@ -50,17 +50,7 @@ ALL_TYPES_NULLABLE = True
 logger = logging.getLogger(__name__)
 
 
-### since we need to store self.object in cls.memory,
-### we need hashable subclasses of unhashable builtin
-### python types, and the user shouldn't have to know
-### about these things.
-###
-### note: the hashes of python scalars are not constant
-### from one python process to another, so we need a
-### stronger form of serialization for the saving and
-### loading step. worst case scenario, we can just
-### pickle the damn things here, and recompute when
-### they change.
+# hashability
 class thinklist(list):
     def __hash__(self):
         return hash(tuple(self))
@@ -79,8 +69,6 @@ TYPE_PROMOTIONS = {
     dict: thinkdict,
 }
 
-S = '\n * '
-
 class Type(type):
 
     """ A better way to implement Type. """
@@ -88,14 +76,6 @@ class Type(type):
     object = type
 
     def __new__(meta, name, bases=(), dict=None, **kwds):
-        logger.debug(f"{S}Type.__new__ (enter):"
-                     f"{S}meta={meta}"
-                     f"{S}name={name}"
-                     f"{S}bases={bases}"
-                     f"{S}dict={dict}"
-                     f"{S}kwds={kwds}"
-                     #f"{S}meta_dict={meta.__dict__}"
-        )
 
         # dict
         dict = {} if dict is None else dict
@@ -117,11 +97,6 @@ class Type(type):
             for base in bases:
                 assert isinstance(base, type)
 
-        #try:
-        #    return TYPES[(meta, name, *bases)]
-        #except:
-        #    pass
-
         # upgrade methods to metamethods
         for k,v in dict.items():
             if k.startswith('__') and k.endswith('__'):
@@ -137,16 +112,6 @@ class Type(type):
         if not hasattr(meta, 'firstborn'):
             meta.firstborn = cls
 
-        logger.debug(f"{S}Type.__new__ (exit):"
-                     f"{S}meta={meta}"
-                     f"{S}name={name}"
-                     f"{S}bases={bases}"
-                     f"{S}dict={dict}"
-                     f"{S}kwds={kwds}"
-                     f"\n"
-                     f"{S}meta_dict={meta.__dict__}"
-                     f"{S}cls_dict={cls.__dict__}"
-        )
         cls.name = name
         cls.bases = [base for base in cls.mro() if hasattr(base, 'think')]
         cls.attrs = {}
@@ -154,25 +119,17 @@ class Type(type):
         cls.kwds = kwds
         cls.subs = []
         cls.contexts = {}
-        cls.memory = {}
 
         # list, set, dict:
         if cls.object in TYPE_PROMOTIONS and not hasattr(cls, '__object__'):
             cls.__object__ = TYPE_PROMOTIONS[cls.object]
 
-        #TYPES[(meta, name, *bases)] = cls
         return cls
 
     def __init__(cls, name, bases=(), dict=None, **kwds):
-        logger.debug(f"{S}Type.__init__ (enter):"
-                     f"{S}cls={cls}"
-                     f"{S}name={name}"
-                     f"{S}bases={bases}"
-                     f"{S}dict={dict}"
-                     f"{S}kwds={kwds}"
-                     f"{S}cls_dict={cls.__dict__}"
-        )
         super().__init__(name, bases, dict)
+
+        cls.memory = {}
 
         if hasattr(cls, '__instances__'):
             assert isinstance(cls.__instances__, (tuple, list, set))
@@ -180,32 +137,10 @@ class Type(type):
                 assert not isinstance(o, Object)
                 cls(o)
 
-        logger.debug(f"{S}Type.__init__ (exit):"
-                     f"{S}cls={cls}"
-                     f"{S}name={name}"
-                     f"{S}bases={bases}"
-                     f"{S}dict={dict}"
-                     f"{S}kwds={kwds}"
-                     f"{S}cls_dict={cls.__dict__}"
-                     f"\n"
-        )
-
         return None
 
     def __call__(cls, arg, *args, **kwds):
-        logger.debug(f"{S}Type.__call__ (enter):"
-                     f"{S}cls={cls}"
-                     f"{S}args={args}"
-                     f"{S}kwds={kwds}"
-                     f"{S}cls_dict={cls.__dict__}"
-        )
 
-        # __object__
-        #
-        # the think-specific magic method __object__, if it exists,
-        # will be called before the arguments are passed to __new__.
-        # in this sense it is analogous to the python magic method
-        # __prepare__ in normal python metaclasses.
         if hasattr(cls, '__object__'):
             object = cls.__object__(arg, *args, **kwds)
         else:
@@ -217,53 +152,18 @@ class Type(type):
         # make the instance
         self = cls.__new__(cls, object, *args, **kwds)
 
-        # __raw__
-        #
-        # the think-specific magic attribute __raw__ stores the raw argument
-        # that was passed to meta.__call__. This is useful in cases when the
-        # user defines __object__ to make a class accept polymorphic inputs,
-        # but still wants access to the raw argument that was passed.
-        # For example, if we have:
-        #
-        # class Sentence(List[Word]):
-        #
-        #     ...
-        #
-        #     def __repr__(self):
-        #         return f"Sentence({self.__raw__})"
-        #
-        # which we want to be able to instantiate by passing a string, not just a list
-        # of words, then that string will be stored in __raw__.
-        #
         self.__raw__ = arg
         if isinstance(self, cls):
             cls.__init__(self, object, *args, **kwds)
 
-        # use the key self.object in case the class author decided to set
-        # the .object attribute to something other than what was passed in.
-        # this is a fairly common occurrence, so this step is important
         cls.memory[object] = self
 
-        logger.debug(f"{S}Type.__call__ (exit):"
-                     f"{S}cls={cls}"
-                     f"{S}args={args}"
-                     f"{S}kwds={kwds}"
-                     f"{S}cls_dict={cls.__dict__}"
-                     f"{S}self={self}"
-                     f"\n"
-        )
-
-    # <experimental Instance property>
-
-        # experimental: resolving the tension between the class level thoughts idea
-        # and the general theme of setattr by implementing "isinstance" using setattr.
         if cls.primary:
             for base in cls.bases:
                 if base is Object: continue
                 self.set(IsInstance[base], True)
         return self
 
-    # </experimental Instance property>
 
     def mro(cls):
         return type.mro(cls)
@@ -288,12 +188,16 @@ class Type(type):
         # * cls.__dict__ for cls in self.__class__.mro()
         # so if we want classes to behave like normal objects w.r.t. tab completion,
         # the __dir__ for a class produced by a metaclass should be:
-        self_dir  = [list(cls.__dict__)]
-        base_dirs = [list(base.__dict__) for base in cls.mro()]
+        self_dir  = [object.__dir__(cls)]
+        base_dirs = [object.__dir__(base) for base in cls.mro()]
         all_dirs  = self_dir + base_dirs
         dir = sum(all_dirs, [])
         dir = sorted(set(dir))
         return dir
+
+    ######################################
+    ### plumbing for getattr / setattr ###
+    ######################################
 
     def instances(cls):
         instances = {}
@@ -301,12 +205,6 @@ class Type(type):
         for base in cls.subs:
             instances |= base.memory
         return instances
-
-    primary = True
-
-    ######################################
-    ### plumbing for getattr / setattr ###
-    ######################################
 
     def similarities(cls, object):
         print('similarities called')
@@ -322,7 +220,7 @@ class Type(type):
         pairs = cls.memory.items()
         keys = [k for k,v in pairs]
         vals = [v.think() for k,v in pairs]
-        sims = slow.dots(vals, object) # quicker version of slow.pre_attention_l1(vals, object)
+        sims = slow.pre_attention_l1(vals, object)
         idx  = int(jnp.argmax(sims))
         key  = list(keys)[idx]
         return key
@@ -336,9 +234,10 @@ class Type(type):
         vects = [o.__array__() for o in cls.memory.values()]
         return jnp.stack(vects, axis=0)
 
-    ####################################
-    ### self training code for types ###
-    ####################################
+    ##########################
+    ### self training code ###
+    ##########################
+
     def perfect(cls):
         for name, self in cls.instances().items():
             if self.score() < 1.0:
@@ -362,16 +261,42 @@ class Type(type):
         for name, self in cls.instances().items():
             gradients.learn_until_score(self, *args, **kwds)
 
+    ###############################################
+    ### context classes and __getitem__ support ###
+    ###############################################
+
+    primary = True
+
+    def __getitem__(cls, item):
+        try:
+            return cls.contexts[item]
+        except KeyError:
+            pass
+        name = f"{cls.__name__}[{item}]"
+        if isinstance(item, Type):
+            sub = Type(name, cls, primary=False, Item=item)
+        elif isinstance(item, tuple) and len(item) == 2 \
+        and isinstance(item[0], Type) \
+        and isinstance(item[1], Type):
+            # Dict[Str, Int] is a subclass of Dict whose .Key is Str and .Value is Int
+            key, value = item
+            name = f"{cls.__name__}[{key}, {value}]]"
+            sub = Type(name, cls, primary=False, Key=key, Value=value)
+        else:
+            # List[3] is a subclass of List whose .item is set to 3
+            sub = Type(name, cls, primary=False, context=item)
+        cls.contexts[item] = sub
+        return sub
+
 
 class Object(metaclass=Type):
 
     object = object
 
-    """ An Object you can .think() about. """
-
     def __new__(cls, object=None, t=None):
 
         if isinstance(object, Type):
+            1/0
             name = f"{cls.__name__}({object.__name__})"
             bases = (object,)
             return type(cls)(name, bases, {})
@@ -394,20 +319,9 @@ class Object(metaclass=Type):
         pass
 
     def __init_subclass__(cls, **kwds):
-        logger.debug(f"{S}Object.__init_subclass__ (enter):"
-                     f"{S}cls={cls}"
-                     f"{S}kwds={kwds}"
-                     f"{S}cls_dict={cls.__dict__}"
-        )
         super().__init_subclass__()
         for base in cls.bases:
             base.subs.append(cls)
-        logger.debug(f"{S}Object.__init_subclass__ (exit):"
-                     f"{S}cls={cls}"
-                     f"{S}kwds={kwds}"
-                     f"{S}cls_dict={cls.__dict__}"
-                     f"\n"
-        )
 
     def think(self):
         return self.thought.think()
@@ -506,31 +420,6 @@ class Object(metaclass=Type):
     @classmethod
     def ensure_unthinkable(cls, object):
         return cls.unwrap(object)
-
-    @classmethod
-    def __class_getitem__(cls, item):
-        """ This is how to handle sequences. """
-        # these are contextual types
-        try:
-            return cls.contexts[item]
-        except KeyError:
-            pass
-        name = f"{cls.__name__}[{item}]"
-        if isinstance(item, Type):
-            # List[Str] is a subclass of List whose .Item is set to Str
-            sub = Type(name, cls, primary=False, Item=item)
-        elif isinstance(item, tuple) and len(item) == 2 \
-        and isinstance(item[0], Type) \
-        and isinstance(item[1], Type):
-            # Dict[Str, Int] is a subclass of Dict whose .Key is Str and .Value is Int
-            key, value = item
-            name = f"{cls.__name__}[{key}, {value}]]"
-            sub = Type(name, cls, primary=False, Key=key, Value=value)
-        else:
-            # List[3] is a subclass of List whose .item is set to 3
-            sub = Type(name, cls, primary=False, context=item)
-        cls.contexts[item] = sub
-        return sub
 
     def reset_wrong(self):
         wrong = []
