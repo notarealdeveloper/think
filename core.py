@@ -146,8 +146,13 @@ class Type(type):
         else:
             object = arg
 
-        if object in cls.memory:
-            return cls.memory[object]
+        try:    hash(object)
+        except: hashable = False
+        else:   hashable = True
+
+        if hashable:
+            if object in cls.memory:
+                return cls.memory[object]
 
         # make the instance
         self = cls.__new__(cls, object, *args, **kwds)
@@ -156,7 +161,8 @@ class Type(type):
         if isinstance(self, cls):
             cls.__init__(self, object, *args, **kwds)
 
-        cls.memory[object] = self
+        if hashable:
+            cls.memory[object] = self
 
         if cls.primary:
             for base in cls.bases:
