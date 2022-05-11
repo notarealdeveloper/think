@@ -213,7 +213,6 @@ class Type(type):
         return instances
 
     def similarities(cls, object):
-        print('similarities called')
         pairs = cls.memory.items()
         keys = [k for k,v in pairs]
         vals = [v.think() for k,v in pairs]
@@ -279,18 +278,7 @@ class Type(type):
         except KeyError:
             pass
         name = f"{cls.__name__}[{item}]"
-        if isinstance(item, Type):
-            sub = Type(name, cls, primary=False, Item=item)
-        elif isinstance(item, tuple) and len(item) == 2 \
-        and isinstance(item[0], Type) \
-        and isinstance(item[1], Type):
-            # Dict[Str, Int] is a subclass of Dict whose .Key is Str and .Value is Int
-            key, value = item
-            name = f"{cls.__name__}[{key}, {value}]]"
-            sub = Type(name, cls, primary=False, Key=key, Value=value)
-        else:
-            # List[3] is a subclass of List whose .item is set to 3
-            sub = Type(name, cls, primary=False, context=item)
+        sub = Type(name, cls, primary=False, Item=item)
         cls.contexts[item] = sub
         return sub
 
