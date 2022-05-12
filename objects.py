@@ -48,7 +48,7 @@ class Len(Int):
     pass
 
 class Bit(Str):
-    __instances__ = ('0', '1')
+    __create__ = ['0', '1']
 
 class Binary(Int):
     def __init__(self, n):

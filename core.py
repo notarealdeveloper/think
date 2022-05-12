@@ -124,19 +124,17 @@ class Type(type):
         if cls.object in TYPE_PROMOTIONS and not hasattr(cls, '__object__'):
             cls.__object__ = TYPE_PROMOTIONS[cls.object]
 
+        if hasattr(cls, '__create__'):
+            assert isinstance(cls.__create__, (tuple, list, set))
+            for o in cls.__create__:
+                assert not isinstance(o, Object)
+                cls(o)
+
         return cls
 
     def __init__(cls, name, bases=(), dict=None, **kwds):
         super().__init__(name, bases, dict)
-
         cls.memory = {}
-
-        if hasattr(cls, '__instances__'):
-            assert isinstance(cls.__instances__, (tuple, list, set))
-            for o in cls.__instances__:
-                assert not isinstance(o, Object)
-                cls(o)
-
         return None
 
     def __call__(cls, arg, *args, **kwds):
@@ -154,8 +152,11 @@ class Type(type):
             if object in cls.memory:
                 return cls.memory[object]
 
-        # make the instance
-        self = cls.__new__(cls, object, *args, **kwds)
+        if not cls.primary and hasattr(cls, '__new_context__'):
+            self = cls.__new_context__(cls, object, *args, **kwds)
+        else:
+            # make the instance
+            self = cls.__new__(cls, object, *args, **kwds)
 
         self.__raw__ = arg
         if isinstance(self, cls):
@@ -188,18 +189,19 @@ class Type(type):
         cls.thought.rethink(t)
         return cls
 
-    def __dir__(cls):
-        # for normal object, dir contains keys from:
-        # * self.__dict__
-        # * cls.__dict__ for cls in self.__class__.mro()
-        # so if we want classes to behave like normal objects w.r.t. tab completion,
-        # the __dir__ for a class produced by a metaclass should be:
-        self_dir  = [object.__dir__(cls)]
-        base_dirs = [object.__dir__(base) for base in cls.mro()]
-        all_dirs  = self_dir + base_dirs
-        dir = sum(all_dirs, [])
-        dir = sorted(set(dir))
-        return dir
+    if False:
+        def __dir__(cls):
+            # for normal object, dir contains keys from:
+            # * self.__dict__
+            # * cls.__dict__ for cls in self.__class__.mro()
+            # so if we want classes to behave like normal objects w.r.t. tab completion,
+            # the __dir__ for a class produced by a metaclass should be:
+            self_dir  = [object.__dir__(cls)]
+            base_dirs = [object.__dir__(base) for base in cls.mro()]
+            all_dirs  = self_dir + base_dirs
+            dir = sum(all_dirs, [])
+            dir = sorted(set(dir))
+            return dir
 
     ######################################
     ### plumbing for getattr / setattr ###
@@ -272,16 +274,6 @@ class Type(type):
 
     primary = True
 
-    def __getitem__(cls, item):
-        try:
-            return cls.contexts[item]
-        except KeyError:
-            pass
-        name = f"{cls.__name__}[{item}]"
-        sub = Type(name, cls, primary=False, Item=item)
-        cls.contexts[item] = sub
-        return sub
-
 
 class Object(metaclass=Type):
 
@@ -305,7 +297,7 @@ class Object(metaclass=Type):
         self = builtins.object.__new__(cls)
         self.object  = object
         self.attrs   = {}
-        self.thought = Thought()
+        self.thought = Thought(t)
         self.type    = type(cls)
         return self
 
@@ -460,6 +452,20 @@ class Object(metaclass=Type):
         gradients.learn_until_score(self, threshold=1.0)
         print(colors.white(f"{self} is now perfect ✨"))
 
+    def __class_getitem__(cls, item):
+        cls = cls.contextfree()
+        try: return cls.contexts[item]
+        except KeyError: pass
+        name = f"{cls.__name__}[{item}]"
+        sub = Type(name, cls, primary=False, Item=item)
+        cls.contexts[item] = sub
+        return sub
+
+    @classmethod
+    def contextfree(cls):
+        while not cls.primary:
+            cls = cls.__base__
+        return cls
 
 # In python:
 #

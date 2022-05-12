@@ -5,6 +5,7 @@ __all__ = [
     'thought_dim',
     'new_thought',
     'new_thoughts',
+    'ordinal_basis',
 ]
 
 import jax.numpy as jnp
@@ -22,6 +23,15 @@ def new_thought():
 def new_thoughts(n):
     denominator = jnp.sqrt(THOUGHT_DIM)
     return STATE.normal([n, THOUGHT_DIM])/denominator
+
+def ordinal_basis(n, m=1):
+    ortho = [new_thought() for k in range(n+1)]
+    basis = []
+    thetas = jnp.linspace(0, jnp.pi/2, m+1)[+1:-1]
+    for a,c in zip(ortho[:-1], ortho[+1:]):
+        bs = [a*jnp.cos(theta) + c*jnp.sin(theta) for theta in thetas]
+        basis += [a,*bs]
+    return jnp.stack(basis)
 
 def thought_dim(n=None):
     global THOUGHT_DIM
