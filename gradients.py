@@ -57,9 +57,9 @@ def get_data_for_self_training(self, only_train_wrong=False):
     return (attrs, As), (values, vs)
 
 
-def learn_until_score(self, threshold=1.0, step_size=1e-3,
+def learn_until_score(self, threshold=1.0, step_size=1e-2,
                       optimizer=None, steps_per_update=20,
-                      only_train_wrong=False, max_steps=float('inf')):
+                      only_train_wrong=True, max_steps=float('inf')):
 
     # don't yammer about contextual types
     LOG = print # if type(self).primary else logger.debug

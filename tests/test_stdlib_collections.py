@@ -5,10 +5,10 @@ import pytest
 import think
 from think import List, Tuple, Set, Dict
 from think import LinkedList, DoublyLinkedList, After, Before
-from think import Word, Sentence
 
 
-def test_sequences():
+@pytest.mark.train
+def test_list_tuple_dict_training():
 
     t = Tuple(('a', 42, 3+2j))
     l = List(['a', 42, 3+2j])
@@ -32,21 +32,8 @@ def test_sequences():
     assert d.get(Dict.Item['age']) == 42
 
 
-def test_sentences():
-
-    s = Sentence("This is so cool")
-
-    think.learn()
-
-    assert Sentence.Item is Word
-    assert Sentence.__object__('spam and eggs') == ['spam', 'and', 'eggs']
-    assert s.get(Sentence.Item[0]) == 'This'
-    assert s.get(Word[0]) == 'This'
-    assert s.object == ['This', 'is', 'so', 'cool']
-    assert s.__raw__ == 'This is so cool'
-
-
-def test_linked_list():
+@pytest.mark.train
+def test_linked_list_training():
 
     list = ['This', 'is', 'a', 'linked', 'list']
     ll = LinkedList(list)
@@ -61,7 +48,8 @@ def test_linked_list():
     assert walk == list
 
 
-def test_doubly_linked_list():
+@pytest.mark.train
+def test_doubly_linked_list_training():
 
     list = ['This', 'is', 'a', 'doubly', 'linked', 'list']
     ld = DoublyLinkedList(list)

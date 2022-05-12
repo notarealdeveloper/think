@@ -69,6 +69,9 @@ TYPE_PROMOTIONS = {
     dict: thinkdict,
 }
 
+def sort_dict(d):
+    return dict(sorted(d.items(), key=lambda pair: pair[1], reverse=True))
+
 class Type(type):
 
     """ A better way to implement Type. """
@@ -107,7 +110,6 @@ class Type(type):
 
         # create the class
         cls = super().__new__(meta, name, bases, dict)
-        cls.__module__ = None
 
         if not hasattr(meta, 'firstborn'):
             meta.firstborn = cls
@@ -215,25 +217,27 @@ class Type(type):
         return instances
 
     def similarities(cls, object):
-        pairs = cls.memory.items()
-        keys = [k for k,v in pairs]
-        vals = [v.think() for k,v in pairs]
-        sims = slow.pre_attention_l1(vals, object)
-        sims = [s.item() for s in sims]
-        pairs = list(zip(keys, sims))
-        return sorted(pairs, key=lambda pair: pair[1], reverse=True)
+        sims = cls.attention(object)
+        keys = list(cls.memory.keys())
+        return sort_dict(dict(zip(keys, sims)))
 
     def invert(cls, object):
-        pairs = cls.memory.items()
-        keys = [k for k,v in pairs]
-        vals = [v.think() for k,v in pairs]
-        sims = slow.pre_attention_l1(vals, object)
+        sims = cls.attention(object)
         idx  = int(jnp.argmax(sims))
-        key  = list(keys)[idx]
+        key  = list(cls.memory.keys())[idx]
         return key
 
     def project(cls, object):
-        return slow.attention_l1(cls, object)
+        # HOLY FUCK THIS IS WAY BETTER FOR NON-ORTHOGONAL GENERALIZED BASES,
+        # DON'T CHANGE IT, IT ABSOLUTELY CRUSHED THE ALTERNATIVES FOR THE
+        # IMPORTANT (VERY-NON-ORTHOGONAL) CASE OF ORDINAL BASES.
+        sims = cls.attention(object)
+        idx  = int(jnp.argmax(sims))
+        val  = list(cls.memory.values())[idx]
+        return val
+
+    def attention(cls, object):
+        return slow.pre_attention_l1(cls, object)
 
     def __array__(cls):
         if len(cls.memory) == 0:
@@ -251,10 +255,11 @@ class Type(type):
                 return False
         return True
 
-    def learn(cls, *args, **kwds):
+    def learn(cls, **kwds):
+        kwds.setdefault('threshold', 1.0)
         while not cls.perfect():
             for name, self in cls.instances().items():
-                gradients.learn_until_score(self, threshold=1.0, *args, **kwds)
+                gradients.learn_until_score(self, **kwds)
         if cls is not Object:
             print(colors.white(f"{cls.name} is now perfect ✨"))
         else:
@@ -281,18 +286,12 @@ class Object(metaclass=Type):
 
     def __new__(cls, object=None, t=None):
 
-        if isinstance(object, Type):
-            1/0
-            name = f"{cls.__name__}({object.__name__})"
-            bases = (object,)
-            return type(cls)(name, bases, {})
-
         if ALL_TYPES_NULLABLE:
             if not isinstance(object, cls.object) and object is not None:
-                raise TypeError(f"object {object} is not of type {cls.object}")
+                raise TypeError(f"object {object!r} is not of type {cls.object}")
         else:
             if not isinstance(object, cls.object):
-                raise TypeError(f"object {object} is not of type {cls.object}")
+                raise TypeError(f"object {object!r} is not of type {cls.object}")
 
         self = builtins.object.__new__(cls)
         self.object  = object
@@ -394,22 +393,22 @@ class Object(metaclass=Type):
     @classmethod
     def ensure_thinkable(cls, value):
         if isinstance(value, Object):
-            value = value.unwrap()
+            return value
         self = cls(value)
-
-        for sup in cls.bases:
-            if sup.primary:
-                sup(value)
-                break # good, this works, that solves the mystery
         return self
 
     @classmethod
     def ensure_unthinkable(cls, object):
-        return cls.unwrap(object)
+        if isinstance(value, Object):
+            return cls.unwrap(object)
+        return object
 
     def reset_wrong(self):
+        import random
         wrong = []
-        for attr, value in self.attrs.items():
+        items = list(self.attrs.items())
+        random.shuffle(items)
+        for attr, value in items:
             feel = self.get(attr)
             know = value.object
             if feel != know:
@@ -453,7 +452,7 @@ class Object(metaclass=Type):
         print(colors.white(f"{self} is now perfect ✨"))
 
     def __class_getitem__(cls, item):
-        cls = cls.contextfree()
+        #cls = cls.contextfree()
         try: return cls.contexts[item]
         except KeyError: pass
         name = f"{cls.__name__}[{item}]"
@@ -461,11 +460,11 @@ class Object(metaclass=Type):
         cls.contexts[item] = sub
         return sub
 
-    @classmethod
-    def contextfree(cls):
-        while not cls.primary:
-            cls = cls.__base__
-        return cls
+    #@classmethod
+    #def contextfree(cls):
+    #    while not cls.primary:
+    #        cls = cls.__base__
+    #    return cls
 
 # In python:
 #
@@ -493,6 +492,11 @@ __all__ += [
     'Bytes',
     'Complex',
 ]
+
+class IsInstance(Object):
+    object = bool
+IsInstance(True)
+IsInstance(False)
 
 
 if DEFINE_OBJECTS_USING_CLASSES:
@@ -522,10 +526,6 @@ else:
     Bytes   = Type('Bytes',   Object, object=bytes)
     Float   = Type('Float',   Object, object=float)
     Complex = Type('Complex', Object, object=complex)
-
-
-class IsInstance(Bool):
-    ...
 
 
 # types.py

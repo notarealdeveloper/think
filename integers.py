@@ -1,23 +1,30 @@
 #!/usr/bin/env python3
 
+
 __all__ = [
+    'Len',
+    'Digit',
+    'Bit',
     'Decimal',
     'Binary',
 ]
 
 import jax.numpy as jnp
-from think import Int, Thought
 
+from think import Int
+
+class Len(Int):
+    pass
 
 class Numeral(Int):
 
-    def __init_subclass__(cls):
-        cls.thought = Thought()
-        cls.memory = {}
+    @classmethod
+    def __object__(cls, m):
+        return int(m)
 
-    def __new_context__(cls, m, t=None):
+    def __new__(cls, m, t=None):
         """ Ordinal basis implementation """
-        n = cls.Item
+        n = getattr(cls, 'Item', 0)
         a = cls[n].think()
         b = cls[n+1].think()
         θ = cls.theta(m)
@@ -25,6 +32,7 @@ class Numeral(Int):
         self = super().__new__(cls, m, t=t)
         return self
 
+    @classmethod
     def theta(cls, m):
         M = len(cls.__instances__)
         return (m/M)*(jnp.pi/2)
@@ -42,39 +50,14 @@ class Decimal(Int):
         digits = str(n)
         for slot, digit in enumerate(reversed(digits)):
             digit = int(digit)
+            print(f'self.set(Digit[{slot}], {digit})')
             self.set(Digit[slot], digit)
 
 
 class Binary(Int):
     def __init__(self, n):
         digits = bin(n)[2:]
-        for slot, digit in enumerate(reversed(digits)):
-            digit = int(digit)
-            self.set(Bit[slot], digit)
+        for slot, bit in enumerate(reversed(digits)):
+            self.set(Bit[slot], int(bit))
 
-
-if __name__ == '__main__':
-
-    tentens    = Digit[2](10)
-    onehundred = Digit[3](0)
-    assert jnp.allclose(tentens.think(), onehundred.think())
-
-    import slow
-    import seaborn as sns
-
-    d = {}
-    N = 1000
-    for n, m in itertools.product(range(N), range(N)):
-        nkey = str(n).zfill(len(str(N))-1)
-        mkey = str(m).zfill(len(str(N))-1)
-        d[nkey, mkey] = fast.cos(Decimal(n).think(), Decimal(m).think()).item()
-        d[mkey, nkey] = d[nkey, mkey]
-    df = pd.Series(d.values(), index=d.keys()).unstack()
-    sns.set(font_scale=0.1)
-    c = sns.heatmap(df, xticklabels=1, yticklabels=1)
-    c.figure.set_figwidth(30)
-    c.figure.set_figheight(20)
-    plt.title(f"Pairwise similarities of numbers from 0 to {N} in an ordinal basis", fontsize=42)
-    plt.savefig(f"pairwise-similarities-of-numbers-from-0-to-{N}-in-an-ordinal-basis.png")
-    plt.close('all')
 

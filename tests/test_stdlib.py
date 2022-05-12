@@ -3,15 +3,12 @@
 import pytest
 
 import think
-from think import Object, Str
-from think import Char, Letter, Word, Sentence
-from think import Digit, Digits
-from think import Year, Month, Day
-from think import Date
+from think import Letter, Word, Sentence
+from think import Year, Month, Day, Date
 
 
 @pytest.mark.train
-def test_perfection():
+def test_training_a_system_to_perfection():
 
     # Example of training a system until it can
     # perfectly encode all the knowledge it has
@@ -75,6 +72,3 @@ def test_perfection():
     assert D3.get(Month) == '02'
     assert D3.get(Day)   == '22'
 
-
-if __name__ == '__main__':
-    test_perfection()
