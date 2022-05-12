@@ -6,4 +6,7 @@ from .ops import *
 from .thoughts import *
 from .core import *
 from .types import *
+
+# objects
 from .objects import *
+from .integers import *
