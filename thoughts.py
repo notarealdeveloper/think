@@ -3,6 +3,7 @@
 __all__ = [
     'Thought',
     'thought_dim',
+    'random_normal',
     'new_thought',
     'new_thoughts',
     'ordinal_basis',
@@ -15,6 +16,9 @@ from think.internals import State
 STATE = State()
 
 THOUGHT_DIM = 1024
+
+def random_normal(shape):
+    return STATE.normal(shape)
 
 def new_thought():
     denominator = jnp.sqrt(THOUGHT_DIM)
