@@ -22,9 +22,9 @@ def test_sentence():
     s = Sentence("This is so cool")
     think.learn()
     assert Sentence.Item is Word
-    assert Sentence.__object__('spam and eggs') == ['spam', 'and', 'eggs']
+    assert Sentence.__object__('spam and eggs') == ('spam', 'and', 'eggs')
     assert s.get(Sentence.Item[0]) == 'This'
     assert s.get(Word[0]) == 'This'
-    assert s.object == ['This', 'is', 'so', 'cool']
+    assert s.object == ('This', 'is', 'so', 'cool')
     assert s.__raw__ == 'This is so cool'
 

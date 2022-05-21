@@ -13,7 +13,7 @@ import string
 
 from think import Bool, Str
 from think import Digit, Bit
-from think import List
+from think import Tuple
 
 
 # Numbers
@@ -88,7 +88,7 @@ class Word(Str):
             self.set(Letter[n], letter)
 
 
-class Sentence(List[Word]):
+class Sentence(Tuple[Word]):
 
     @classmethod
     def __object__(cls, str):
@@ -97,7 +97,7 @@ class Sentence(List[Word]):
             words = super().__object__(nltk.tokenize.word_tokenize(str))
         except:
             words = str.split(' ') # poor man's tokenizer, if we don't have nltk
-        return words
+        return tuple(words)
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.__raw__})"
