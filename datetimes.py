@@ -65,15 +65,15 @@ class Weekday(Str):
 
 class Date(Str):
 
-    def __init__(self, date):
+    def __init__(self, date, set_year=True, set_month=True, set_day=True, set_weekday=True):
         data = self.parse(date)
-        if year := data.get('year'):
+        if (year := data.get('year')) and set_year:
             self.set(Year, year)
-        if month := data.get('month'):
+        if (month := data.get('month')) and set_month:
             self.set(Month, month)
-        if day := data.get('day'):
+        if (day := data.get('day')) and set_day:
             self.set(Day, day)
-        if weekday := data.get('weekday'):
+        if (weekday := data.get('weekday')) and set_weekday:
             self.set(Weekday, weekday)
 
     @classmethod

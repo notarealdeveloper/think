@@ -280,7 +280,7 @@ class Object(metaclass=Type):
 
     object = object
 
-    def __new__(cls, object=None, t=None):
+    def __new__(cls, object=None, t=None, **kwds):
 
         if ALL_TYPES_NULLABLE:
             if not isinstance(object, cls.object) and object is not None:
