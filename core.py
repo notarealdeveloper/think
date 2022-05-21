@@ -154,11 +154,7 @@ class Type(type):
             if object in cls.memory:
                 return cls.memory[object]
 
-        if not cls.primary and hasattr(cls, '__new_context__'):
-            self = cls.__new_context__(cls, object, *args, **kwds)
-        else:
-            # make the instance
-            self = cls.__new__(cls, object, *args, **kwds)
+        self = cls.__new__(cls, object, *args, **kwds)
 
         self.__raw__ = arg
         if isinstance(self, cls):
