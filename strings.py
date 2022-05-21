@@ -54,32 +54,10 @@ class Char(Str):
 class Letter(Char):
 
     LETTERS   = set(string.ascii_letters)
-    LOWERCASE = set(string.ascii_lowercase)
-    UPPERCASE = set(string.ascii_uppercase)
-
-    LOWER_TO_UPPER = dict(zip(string.ascii_lowercase, string.ascii_uppercase))
-    UPPER_TO_LOWER = dict(zip(string.ascii_uppercase, string.ascii_lowercase))
 
     def __init__(self, letter):
         if letter not in self.LETTERS:
             raise TypeError(f"Not a letter: {letter!r}")
-
-        return
-        if letter in self.UPPERCASE:
-            self.set(self.IsLowercase, False)
-            self.set(self.IsUppercase, True)
-            self.set(self.Lowercase, self.UPPER_TO_LOWER[letter])
-
-        if letter in self.LOWERCASE:
-            self.set(self.IsUppercase, False)
-            self.set(self.IsLowercase, True)
-            self.set(self.Uppercase, self.LOWER_TO_UPPER[letter])
-
-    class IsUppercase(Bool): pass
-    class IsLowercase(Bool): pass
-
-    class Uppercase(Char): pass
-    class Lowercase(Char): pass
 
 
 class Word(Str):
