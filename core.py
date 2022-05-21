@@ -311,6 +311,12 @@ class Object(metaclass=Type):
         self.thought.rethink(t)
         return self
 
+    def bits(self):
+        bits = 0
+        for attr in self.attrs:
+            bits += jnp.log2(len(attr.memory))
+        return bits.item()
+
     def setfeel(self, attr, value):
         value = attr.ensure_thinkable(value)
         t = slow.setattr(attr, self, value)
