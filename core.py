@@ -394,10 +394,13 @@ class Object(metaclass=Type):
 
     @classmethod
     def ensure_thinkable(cls, value):
-        if isinstance(value, Object):
+        if isinstance(value, cls):
             return value
-        self = cls(value)
-        return self
+        elif isinstance(value, Object):
+            cls(value.unwrap())
+            return value
+        else:
+            return cls(value)
 
     @classmethod
     def ensure_unthinkable(cls, object):
