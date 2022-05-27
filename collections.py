@@ -38,6 +38,11 @@ class Sequence(Object):
     def __len__(self):
         return self.get(Len)
 
+    @classmethod
+    def invert(cls, t):
+        items = [cls.Item[n].invert(t) for n in reversed(range(Len.invert(t)))]
+        return items
+
 
 class List(Sequence):
     object = list
