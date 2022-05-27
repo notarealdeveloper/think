@@ -361,7 +361,7 @@ class Object(metaclass=Type):
         return self.think()
 
     def __eq__(self, other):
-        if not isinstance(other, Object):
+        if isinstance(other, Object):
             return type(self) == type(other) and self.object == other.object
         else:
             return type(self.object) == type(other) and self.object == other
