@@ -3,12 +3,15 @@
 
 __all__ = [
     'Len',
+    'Sign',
     'Digit',
     'Bit',
     'Decimal',
     'Binary',
+    'LossyDecimal',
 ]
 
+import re
 import jax.numpy as jnp
 
 from think import Int
@@ -16,20 +19,23 @@ from think import Int
 class Len(Int):
     pass
 
+class Sign(Int):
+    pass
+
 class Numeral(Int):
 
     @classmethod
-    def __object__(cls, m):
+    def __object__(cls, m, *args, **kwds):
         return int(m)
 
-    def __new__(cls, m, t=None):
+    def __new__(cls, m, *args, **kwds):
         """ Ordinal basis implementation """
         n = getattr(cls, 'Item', 0)
         a = cls[n].think()
         b = cls[n+1].think()
         θ = cls.theta(m)
         t = a*jnp.cos(θ) + b*jnp.sin(θ)
-        self = super().__new__(cls, m, t=t)
+        self = super().__new__(cls, m, *args, **kwds)
         return self
 
     @classmethod
@@ -47,11 +53,13 @@ class Bit(Numeral):
 
 class Decimal(Int):
     def __init__(self, n):
-        digits = str(n)
+        sign = +1 if n >= 0 else -1
+        digits = str(abs(n))
         for slot, digit in enumerate(reversed(digits)):
-            digit = int(digit)
             print(f'self.set(Digit[{slot}], {digit})')
-            self.set(Digit[slot], digit)
+            self.set(Digit[slot], int(digit))
+        self.set(Len, len(digits))
+        self.set(Sign, sign)
 
 
 class Binary(Int):
@@ -61,3 +69,13 @@ class Binary(Int):
             self.set(Bit[slot], int(bit))
 
 
+class LossyDecimal(Int):
+    def __init__(self, n, num_digits=1):
+        sign = +1 if n >= 0 else -1
+        digits = str(abs(n))
+        for slot, digit in enumerate(digits):
+            if slot < num_digits:
+                print(f'self.set(Digit[{slot}], {digit})')
+                self.set(Digit[slot], int(digit))
+        self.set(Len, len(digits))
+        self.set(Sign, sign)
