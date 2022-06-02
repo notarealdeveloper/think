@@ -74,6 +74,7 @@ class Date(Str):
         if (day := data.get('day')) and set_day:
             self.set(Day, day)
         if (weekday := data.get('weekday')) and set_weekday:
+            weekday = weekday() if callable(weekday) else weekday
             self.set(Weekday, weekday)
 
     @classmethod
