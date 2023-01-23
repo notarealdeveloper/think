@@ -64,7 +64,6 @@ class Decimal(Int):
         sign = +1 if n >= 0 else -1
         digits = str(abs(n))
         for slot, digit in enumerate(reversed(digits)):
-            print(f'self.set(Digit[{slot}], {digit})')
             self.set(Digit[slot], int(digit))
         self.set(Len, len(digits))
         self.set(Sign, sign)
