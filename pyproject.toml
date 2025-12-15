@@ -1,10 +1,10 @@
 [project]
-name = "think"
+name = "thnk"
 version = "0.0.1"
 authors = [
     { name="Jason Wilkes", email="notarealdeveloper@gmail.com" },
 ]
-description = "A machine-learnable version of the python object system, with support for one-shot learning"
+description = "A machine-learnable version of the python object system."
 dependencies = [
     "jax",
     "nltk",

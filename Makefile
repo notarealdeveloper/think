@@ -1,4 +1,4 @@
-PKG := think
+PKG := thnk
 
 build:
 	pip install build
