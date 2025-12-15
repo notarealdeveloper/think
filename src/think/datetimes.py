@@ -80,9 +80,9 @@ class Date(Str):
     @classmethod
     def date_object_to_dict(cls, date):
         d = {k: getattr(date, k) for k in ('year', 'month', 'day', 'weekday')}
-        d = {k: str(v) for k,v in d.items()}
         if callable(d['weekday']): # for 2/3 methods, it's a function
-            d['weekday'] = d['weekday']()
+            d['weekday'] = d['weekday']()+1
+        d = {k: str(v) for k,v in d.items()}
         lengths = {'year': 4, 'month': 2, 'day': 2, 'weekday': 1}
         for k in d:
             d[k] = d[k].zfill(lengths[k])

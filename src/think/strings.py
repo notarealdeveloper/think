@@ -53,7 +53,7 @@ class Char(Str):
 
 class Letter(Char):
 
-    LETTERS   = set(string.ascii_letters)
+    LETTERS = set(string.ascii_letters)
 
     def __init__(self, letter):
         if letter not in self.LETTERS:

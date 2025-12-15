@@ -21,7 +21,7 @@ import types
 import typing
 from _collections_abc import dict_values
 
-jax_array_type  = jaxlib.xla_extension.DeviceArray
+jax_array_type = jax.Array
 jax_tracer_type = jax.core.Tracer
 
 def to_vector(arg):
