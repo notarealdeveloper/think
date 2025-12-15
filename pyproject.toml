@@ -1,0 +1,18 @@
+[project]
+name = "think"
+version = "0.0.1"
+authors = [
+    { name="Jason Wilkes", email="notarealdeveloper@gmail.com" },
+]
+description = "A machine-learnable version of the python object system, with support for one-shot learning"
+dependencies = [
+]
+
+[project.optional-dependencies]
+develop = [
+    "build",
+    "pytest",
+]
+
+[project.urls]
+source = "https://github.com/notarealdeveloper/think"
