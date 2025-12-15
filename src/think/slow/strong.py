@@ -8,7 +8,6 @@ __all__ = [
     'to_list_of_type',
     'is_jax_vector',
     'is_jax_array',
-    'is_instance',
     'jax_array_type',
     'least_base_type',
 ]
@@ -79,54 +78,6 @@ def least_base_type(*types):
     from operator import and_
     from collections import Counter
     return next(iter(reduce(and_, (Counter(t.mro()) for t in types))))
-
-def is_instance(obj, cls):
-
-    """ Turducken typing. """
-
-    if isinstance(cls, tuple):
-        for scls in cls:
-            if is_instance(obj, scls):
-                return True
-        else:
-            return False
-
-    if type(cls) is typing._UnionGenericAlias \
-    and cls.__origin__ is typing.Union:
-        return is_instance(obj, cls.__args__)
-
-    if not isinstance(cls, types.GenericAlias):
-        return isinstance(obj, cls)
-
-    if not is_instance(obj, cls.__origin__):
-        return False
-
-    ocls = cls.__origin__
-    args = cls.__args__
-
-    if ocls is list:
-        assert len(args) == 1
-        itemcls = args[0]
-        for item in obj:
-            if not is_instance(item, itemcls):
-                return False
-        return True
-    if ocls is dict:
-        assert len(args) == 2
-        keycls, valcls = args
-        for key, val in obj.items():
-            if not is_instance(key, keycls):
-                return False
-            if not is_instance(val, valcls):
-                return False
-        return True
-    if ocls is tuple:
-        for sobj, scls in zip(obj, args):
-            if not is_instance(sobj, scls):
-                return False
-        return True
-
-    raise TypeError(obj, cls)
 
 to_thought = to_vector # compatability
 __all__.append('to_thought')

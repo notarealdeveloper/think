@@ -25,6 +25,7 @@ class Item(Object):
     pass
 
 class Sequence(Object):
+
     Item = Item
 
     def __init__(self, seq):
@@ -59,11 +60,13 @@ class Set(Sequence):
 class Key(Object):
     pass
 
+
 class Value(Object):
     pass
 
 
 class Dict(Sequence):
+
     object = dict
     Key   = Key
     Value = Value

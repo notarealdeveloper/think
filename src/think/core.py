@@ -465,11 +465,6 @@ class Object(metaclass=Type):
         cls.contexts[item] = sub
         return sub
 
-    #@classmethod
-    #def contextfree(cls):
-    #    while not cls.primary:
-    #        cls = cls.__base__
-    #    return cls
 
 # In python:
 #

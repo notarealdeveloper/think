@@ -9,6 +9,7 @@ dependencies = [
     "jax",
     "nltk",
     "timestring",
+    "is_instance",
 ]
 
 [project.optional-dependencies]
