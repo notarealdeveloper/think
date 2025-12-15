@@ -6,6 +6,7 @@ authors = [
 ]
 description = "A machine-learnable version of the python object system, with support for one-shot learning"
 dependencies = [
+    "jax",
 ]
 
 [project.optional-dependencies]
