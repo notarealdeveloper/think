@@ -10,8 +10,8 @@ from think import fast, slow
 from think import Date, After, Before
 
 dates = []
-from_date = '1945-01-01'
-to_date = '2025-12-31'
+from_date = '1996-01-01'
+to_date = '2008-12-31'
 for dt in pd.date_range(from_date, to_date):
     date = dt.date().isoformat()
     dates.append(Date(date))
