@@ -92,8 +92,8 @@ def regenerate_module(fast, output_path):
     imports = textwrap.dedent(f"""
     #!/usr/bin/env python3
 
-    import fast
-    import slow
+    from think import fast
+    from think import slow
     """)
 
     exports = f",\n{indent}".join(exports)
@@ -127,8 +127,8 @@ def modification_time(path):
         return 0
 
 def build(force=False):
-    import fast
-    import slow
+    from think import fast
+    from think import slow
     dirname = os.path.dirname(slow.__file__)
     fast_path = fast.__file__
     slow_path = os.path.join(dirname, 'poly.py')

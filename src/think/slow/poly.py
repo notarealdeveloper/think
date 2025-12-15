@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-import fast
-import slow
+from think import fast
+from think import slow
 
 __all__ = [
     'norm',

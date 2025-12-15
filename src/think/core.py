@@ -25,8 +25,8 @@ import builtins
 import itertools
 import jax.numpy as jnp
 
-import fast
-import slow
+from think import fast
+from think import slow
 import think
 from think import Thought, new_thought
 from think.internals import hybridmethod, metamethod

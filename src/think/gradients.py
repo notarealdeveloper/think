@@ -17,8 +17,8 @@ except:
     # jax optimizers are here in older versions
     from jax.experimental import optimizers
 
-import fast
-import slow
+from think import fast
+from think import slow
 logger = logging.getLogger(__name__)
 
 

@@ -7,7 +7,7 @@ __all__ = [
     'Div',
 ]
 
-import slow
+from think import slow
 import think
 
 class BinaryOperation:
