@@ -87,8 +87,4 @@ a = Word(w).get(Letter[2])
 i = Word(w).get(Letter[3])
 a = Letter(a)
 i = Letter(i)
-#A = a.get(Letter.Uppercase)
-#I = i.get(Letter.Uppercase)
-#assert A == 'A'
-#assert I == 'I'
 
