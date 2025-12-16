@@ -72,6 +72,7 @@ TYPE_PROMOTIONS = {
 def sort_dict(d):
     return dict(sorted(d.items(), key=lambda pair: pair[1], reverse=True))
 
+
 class Type(type):
 
     """ A better way to implement Type. """
@@ -126,17 +127,21 @@ class Type(type):
         if cls.object in TYPE_PROMOTIONS and not hasattr(cls, '__object__'):
             cls.__object__ = TYPE_PROMOTIONS[cls.object]
 
+        return cls
+
+    def __init__(cls, name, bases=(), dict=None, **kwds):
+
+        super().__init__(name, bases, dict)
+
+        cls.memory = {}
+
         if hasattr(cls, '__create__'):
             assert isinstance(cls.__create__, (tuple, list, set))
             for o in cls.__create__:
                 assert not isinstance(o, Object)
+                print(f'cls={cls!r}, o={o!r}')
                 cls(o)
 
-        return cls
-
-    def __init__(cls, name, bases=(), dict=None, **kwds):
-        super().__init__(name, bases, dict)
-        cls.memory = {}
         return None
 
     def __call__(cls, arg, *args, **kwds):
