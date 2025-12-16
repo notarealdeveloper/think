@@ -60,10 +60,16 @@ class Letter(Char):
             raise TypeError(f"Not a letter: {letter!r}")
 
 
-class Word(Str):
+class Letters(Str):
     def __init__(self, word):
         for n, letter in enumerate(word):
             self.set(Letter[n], letter)
+
+
+class Word(Str):
+    def __init__(self, word):
+        for n, letter in enumerate(word):
+            self.set(Char[n], letter)
 
 
 class Sentence(Tuple[Word]):
