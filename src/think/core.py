@@ -280,7 +280,14 @@ class Object(metaclass=Type):
 
     object = object
 
-    def __new__(cls, object=None, t=None, **kwds):
+    def __new__(cls, *args, **kwds):
+
+        if not args:
+            object = None
+        else:
+            object = args[0]
+
+        t = kwds.pop('t', None)
 
         if ALL_TYPES_NULLABLE:
             if not isinstance(object, cls.object) and object is not None:
@@ -464,7 +471,6 @@ class Object(metaclass=Type):
         sub = Type(name, cls, primary=False, Item=item)
         cls.contexts[item] = sub
         return sub
-
 
 # In python:
 #
