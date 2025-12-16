@@ -139,7 +139,6 @@ class Type(type):
             assert isinstance(cls.__create__, (tuple, list, set))
             for o in cls.__create__:
                 assert not isinstance(o, Object)
-                print(f'cls={cls!r}, o={o!r}')
                 cls(o)
 
         return None
