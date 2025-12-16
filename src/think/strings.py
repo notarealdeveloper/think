@@ -3,7 +3,6 @@
 __all__ = [
     'Digits',
     'Bits',
-    'Char',
     'Letter',
     'Word',
     'Sentence',
@@ -45,31 +44,35 @@ class Bits(Str):
 
 # Letters
 
-class Char(Str):
+#class Char(Str):
+#    def __init__(self, chr):
+#        if len(chr) > 1:
+#            raise TypeError(f"Not a char: {chr!r}")
+#
+
+#class Letter(Char):
+#
+#    LETTERS = set(string.ascii_letters)
+#
+#    def __init__(self, letter):
+#        if letter not in self.LETTERS:
+#            raise TypeError(f"Not a letter: {letter!r}")
+
+
+#class Letters(Str):
+#    def __init__(self, word):
+#        for n, letter in enumerate(word):
+#            self.set(Letter[n], letter)
+
+class Letter(Str):
     def __init__(self, chr):
         if len(chr) > 1:
-            raise TypeError(f"Not a char: {chr!r}")
-
-
-class Letter(Char):
-
-    LETTERS = set(string.ascii_letters)
-
-    def __init__(self, letter):
-        if letter not in self.LETTERS:
-            raise TypeError(f"Not a letter: {letter!r}")
-
-
-class Letters(Str):
-    def __init__(self, word):
-        for n, letter in enumerate(word):
-            self.set(Letter[n], letter)
-
+            raise TypeError(f"Not a letter: {chr!r}")
 
 class Word(Str):
     def __init__(self, word):
         for n, letter in enumerate(word):
-            self.set(Char[n], letter)
+            self.set(Letter[n], letter)
 
 
 class Sentence(Tuple[Word]):
