@@ -47,6 +47,7 @@ class Numeral(Int):
 class Digit(Numeral):
     __instances__ = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
+
 class Bit(Numeral):
     __instances__ = [0, 1]
 

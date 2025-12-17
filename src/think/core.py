@@ -143,10 +143,17 @@ class Type(type):
 
         return None
 
-    def __call__(cls, arg, *args, **kwds):
+    def __call__(cls, *args, **kwds):
+
+        if args:
+            arg = args[0]
+        elif kwds:
+            arg = kwds[list(kwds.keys())[0]]
+        else:
+            raise ValueError(f"Type.__call__ can't determine first argument.")
 
         if hasattr(cls, '__object__'):
-            object = cls.__object__(arg, *args, **kwds)
+            object = cls.__object__(*args, **kwds)
         else:
             object = arg
 
@@ -158,11 +165,11 @@ class Type(type):
             if object in cls.memory:
                 return cls.memory[object]
 
-        self = cls.__new__(cls, object, *args, **kwds)
+        self = cls.__new__(cls, *args, **kwds)
 
         self.__raw__ = arg
         if isinstance(self, cls):
-            cls.__init__(self, object, *args, **kwds)
+            cls.__init__(self, *args, **kwds)
 
         if hashable:
             cls.memory[object] = self
