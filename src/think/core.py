@@ -143,51 +143,26 @@ class Type(type):
 
         return None
 
-    def __call__(cls, *args, **kwds):
-
-        if args:
-            arg = args[0]
-        else:
-            arg = None
+    def __call__(cls, arg, *args, **kwds):
 
         if hasattr(cls, '__object__'):
-            object = cls.__object__(*args, **kwds)
+            object = cls.__object__(arg, *args, **kwds)
         else:
             object = arg
-            hash = None # brilliant lol
 
-        try:
-            hash(object)
-            assert not args
-            assert not kwds
-        except:
-            hashable = False
-        else:
-            hashable = True
+        try:    hash(object)
+        except: hashable = False
+        else:   hashable = True
 
         if hashable:
             if object in cls.memory:
                 return cls.memory[object]
 
-        t = kwds.pop('t', None)
+        self = cls.__new__(cls, object, *args, **kwds)
 
-        if ALL_TYPES_NULLABLE:
-            if not isinstance(object, cls.object) and object is not None:
-                raise TypeError(f"object {object!r} is not of type {cls.object}")
-        else:
-            if not isinstance(object, cls.object):
-                raise TypeError(f"object {object!r} is not of type {cls.object}")
-
-        self = cls.__new__(cls, *args, **kwds)
-
-        self.object  = object
-        self.attrs   = {}
-        self.thought = Thought(t)
-        self.type    = type(cls)
         self.__raw__ = arg
-
         if isinstance(self, cls):
-            cls.__init__(self, *args, **kwds)
+            cls.__init__(self, object, *args, **kwds)
 
         if hashable:
             cls.memory[object] = self
@@ -310,7 +285,26 @@ class Object(metaclass=Type):
     object = object
 
     def __new__(cls, *args, **kwds):
+
+        if not args:
+            object = None
+        else:
+            object = args[0]
+
+        t = kwds.pop('t', None)
+
+        if ALL_TYPES_NULLABLE:
+            if not isinstance(object, cls.object) and object is not None:
+                raise TypeError(f"object {object!r} is not of type {cls.object}")
+        else:
+            if not isinstance(object, cls.object):
+                raise TypeError(f"object {object!r} is not of type {cls.object}")
+
         self = builtins.object.__new__(cls)
+        self.object  = object
+        self.attrs   = {}
+        self.thought = Thought(t)
+        self.type    = type(cls)
         return self
 
     def __init__(self, *args, **kwds):
