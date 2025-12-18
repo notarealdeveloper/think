@@ -479,6 +479,17 @@ class Object(metaclass=Type):
         cls.contexts[item] = sub
         return sub
 
+
+def _forbid_pickling_of_dynamic_types():
+    def _no_pickle(self):
+        raise TypeError(
+            "Dynamic think.Type objects must not be pickled directly"
+        )
+    Type.__reduce__ = _no_pickle
+    Object.__reduce__ = _no_pickle
+
+_forbid_pickling_of_dynamic_types()
+
 # In python:
 #
 # 1. type's type is type
@@ -615,9 +626,20 @@ def _serialize_system():
     """
     Produce a pure-Python snapshot of the entire system.
     """
+
+    def assert_plain(obj):
+        import pickle
+        try:
+            pickle.dumps(obj)
+        except Exception as e:
+            raise RuntimeError(
+                f"Non-serializable object leaked into snapshot: {obj!r}"
+            ) from e
+
     data = {
         "types": {},
         "objects": {},
+        "contexts": {},
     }
 
     # Serialize types
@@ -626,6 +648,9 @@ def _serialize_system():
             "base": T.base.name if hasattr(T, "base") else None,
             "thought": jnp.array(T.think()),
         }
+
+        if T.contexts:
+            data["contexts"][T.name] = list(T.contexts.keys())
 
         # Serialize instances
         objs = {}
@@ -640,6 +665,8 @@ def _serialize_system():
             }
         data["objects"][T.name] = objs
 
+
+    assert_plain(data)
     return data
 
 
@@ -649,6 +676,13 @@ def _deserialize_system(data):
     Assumes code defining Types already exists.
     """
     name_to_type = {T.name: T for T in _all_types()}
+
+    # Phase 1: recreate contextual types
+    for base_name, items in data.get("contexts", {}).items():
+        base = name_to_type[base_name]
+        for item in items:
+            ctx = base[item]   # triggers __class_getitem__
+            name_to_type[ctx.name] = ctx
 
     # Restore type thoughts
     for name, info in data["types"].items():
