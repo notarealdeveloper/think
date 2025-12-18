@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 ##########################
 
 def loss_fn(t, As, vs):
-    feels = jnp.stack([fast.attention_l1(A, t) for A in As], axis=0)
+    feels = vmap(lambda A: fast.attention_l1(A, t))(As)
     knows = jnp.stack(vs, axis=0)
     losses = (feels - knows)**2
     loss = losses.sum()
