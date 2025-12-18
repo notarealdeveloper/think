@@ -46,9 +46,7 @@ def get_data_for_self_training(self, only_train_wrong=False):
             continue
         attrs.append(attr)
         values.append(value)
-        if not hasattr(attr, "_array_cache"):
-            attr._array_cache = slow.to_array(attr)
-        A = attr._array_cache
+        A = slow.to_array(attr)
         v = value.think()
         vs.append(v)
         As.append(A)
