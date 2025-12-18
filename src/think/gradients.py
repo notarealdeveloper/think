@@ -16,6 +16,7 @@ from think import fast
 from think import slow
 logger = logging.getLogger(__name__)
 
+MIN_LOSS = 1e-6
 
 ##########################
 ### SELF TRAINING CODE ###
@@ -96,6 +97,8 @@ def learn_until_score(self, threshold=1.0, step_size=1e-2,
 
         for n in range(steps_per_update):
             loss, grads = grad_fn_self(t, As, vs)
+            if loss < MIN_LOSS:
+                break
             opt_state = opt_update(steps, grads, opt_state)
             t = get_params(opt_state)
             steps += 1
@@ -146,6 +149,8 @@ def learn_until_loss(self, threshold, step_size=1e-3,
     while steps < max_steps:
         for n in range(steps_per_update):
             loss, grads = grad_fn_self(t, As, vs)
+            if loss < MIN_LOSS:
+                break
             opt_state = opt_update(steps, grads, opt_state)
             t = get_params(opt_state)
             steps += 1
