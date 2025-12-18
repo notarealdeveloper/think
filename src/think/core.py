@@ -14,6 +14,8 @@ __all__ = [
     'Object',
     'Type',
     'IsInstance',
+    'save_system',
+    'load_system',
 ]
 
 import types
@@ -586,6 +588,104 @@ __all__ += [
 
 perfect = Object.perfect
 learn   = Object.learn
+
+#################################
+# System serialization support  #
+#################################
+
+from pathlib import Path
+import pickle
+
+def _all_types():
+    """Return all known Types in the system."""
+    seen = set()
+    stack = [Object]
+    out = []
+    while stack:
+        t = stack.pop()
+        if t in seen:
+            continue
+        seen.add(t)
+        out.append(t)
+        stack.extend(t.subs)
+    return out
+
+
+def _serialize_system():
+    """
+    Produce a pure-Python snapshot of the entire system.
+    """
+    data = {
+        "types": {},
+        "objects": {},
+    }
+
+    # Serialize types
+    for T in _all_types():
+        data["types"][T.name] = {
+            "base": T.base.name if hasattr(T, "base") else None,
+            "thought": jnp.array(T.think()),
+        }
+
+        # Serialize instances
+        objs = {}
+        for k, obj in T.memory.items():
+            objs[repr(k)] = {
+                "object": k,
+                "thought": jnp.array(obj.think()),
+                "attrs": {
+                    attr.name: val.object
+                    for attr, val in obj.attrs.items()
+                },
+            }
+        data["objects"][T.name] = objs
+
+    return data
+
+
+def _deserialize_system(data):
+    """
+    Restore system state from snapshot.
+    Assumes code defining Types already exists.
+    """
+    name_to_type = {T.name: T for T in _all_types()}
+
+    # Restore type thoughts
+    for name, info in data["types"].items():
+        T = name_to_type[name]
+        T.rethink(info["thought"])
+
+    # Restore objects
+    for type_name, objs in data["objects"].items():
+        T = name_to_type[type_name]
+        for _, info in objs.items():
+            obj = T(info["object"])
+            obj.rethink(info["thought"])
+
+            # Restore attributes
+            for attr_name, raw_val in info["attrs"].items():
+                attr = name_to_type[attr_name]
+                obj.setknow(attr, attr(raw_val))
+                obj.setfeel(attr, attr(raw_val))
+
+
+def save_system(path):
+    """
+    Save the entire Think system to disk.
+    """
+    path = Path(path)
+    with path.open("wb") as f:
+        pickle.dump(_serialize_system(), f)
+
+
+def load_system(path):
+    """
+    Load a previously saved Think system.
+    """
+    path = Path(path)
+    with path.open("rb") as f:
+        data = pickle.load(f)
+    _deserialize_system(data)
 
 # thus ends the core
 # all else is commentary
