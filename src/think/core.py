@@ -16,27 +16,18 @@ __all__ = [
     'IsInstance',
 ]
 
-import abc
 import types
-import logging
-import numbers
 import logging
 import builtins
 import itertools
 import jax.numpy as jnp
 
-import think
-from think import fast
 from think import slow
-from think import Thought, new_thought
-from think.internals import hybridmethod, metamethod
+from think import Thought
+from think.internals import metamethod
 from think.ops import Add, Sub, Mul, Div
 from think import gradients
 from think.pretty import colors
-
-
-OBJECTS = {}
-TYPES   = {}
 
 # all 4 combinations of these two boolean variables
 # should produce identical outcomes if the system is
@@ -210,10 +201,9 @@ class Type(type):
     ######################################
 
     def instances(cls):
-        instances = {}
-        instances |= cls.memory
-        for base in cls.subs:
-            instances |= base.memory
+        instances = dict(cls.memory)
+        for sub in sorted(cls.subs, key=lambda c: c.__qualname__):
+            instances.update(sub.memory)
         return instances
 
     def similarities(cls, object):
@@ -415,8 +405,8 @@ class Object(metaclass=Type):
 
     @classmethod
     def ensure_unthinkable(cls, object):
-        if isinstance(value, Object):
-            return cls.unwrap(object)
+        if isinstance(object, Object):
+            return object.unwrap()
         return object
 
     def reset_wrong(self):
