@@ -96,8 +96,9 @@ def learn_until_score(self, threshold=1.0, step_size=1e-2,
 
         for n in range(steps_per_update):
             loss, grads = grad_fn_self(t, As, vs)
-            opt_state = opt_update(0, grads, opt_state)
+            opt_state = opt_update(steps, grads, opt_state)
             t = get_params(opt_state)
+            steps += 1
         num_grad += 1
         self.rethink(t)
 
@@ -110,7 +111,6 @@ def learn_until_score(self, threshold=1.0, step_size=1e-2,
         LOG(f"{self!r}: finished {steps} steps. {score:.2%} of knowledge encoded, "
             f"desired {threshold:.2%} (loss={loss}, projs={num_proj} grads={num_grad})")
 
-        steps += 1
     LOG(f"{self!r}: reached max steps, moving on.")
     return self
 
@@ -146,7 +146,7 @@ def learn_until_loss(self, threshold, step_size=1e-3,
     while steps < max_steps:
         for n in range(steps_per_update):
             loss, grads = grad_fn_self(t, As, vs)
-            opt_state = opt_update(0, grads, opt_state)
+            opt_state = opt_update(steps, grads, opt_state)
             t = get_params(opt_state)
             steps += 1
             if loss < threshold:
