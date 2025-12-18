@@ -411,11 +411,8 @@ class Object(metaclass=Type):
         return object
 
     def reset_wrong(self):
-        import random
         wrong = []
-        items = list(self.attrs.items())
-        random.shuffle(items)
-        for attr, value in items:
+        for attr, value in self.attrs.items():
             feel = self.get(attr)
             know = value.object
             if feel != know:
