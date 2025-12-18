@@ -212,10 +212,11 @@ class Type(type):
         return sort_dict(dict(zip(keys, sims)))
 
     def invert(cls, object):
-        sims = cls.attention(object)
-        idx  = int(jnp.argmax(sims))
-        key  = list(cls.memory.keys())[idx]
-        return key
+        val = cls.project(object)
+        for k, v in cls.memory.items():
+            if v is val:
+                return k
+        raise KeyError("Projected value not found in memory")
 
     def project(cls, object):
         # HOLY FUCK THIS IS WAY BETTER FOR NON-ORTHOGONAL GENERALIZED BASES,
