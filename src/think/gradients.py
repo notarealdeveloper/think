@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 """
     Gradient based learning.
@@ -23,8 +23,12 @@ MIN_LOSS = 1e-6
 ##########################
 
 def loss_fn(t, As, vs):
-    feels = vmap(lambda A: fast.attention_l1(A, t))(As)
+    # As/vs may be Python lists; vmap expects an array-like.
+    # Each A is (num_instances_for_attr, thought_dim). We stack into
+    # (num_attrs, num_instances_for_attr, thought_dim).
+    As = jnp.stack(As, axis=0)
     knows = jnp.stack(vs, axis=0)
+    feels = vmap(lambda A: slow.attention_l1(A, t))(As)
     losses = (feels - knows)**2
     loss = losses.sum()
     return loss
