@@ -334,8 +334,9 @@ class Object(metaclass=Type):
         # without the setfeel line, gradients are responsible for everything,
         # and the system is MUCH less able to learn quickly and sometimes
         # doesn't even converge.
-        self.setfeel(attr, value)
-        self.setknow(attr, value)
+        if self.attrs.get(attr) != value:
+            self.setknow(attr, value)
+            self.setfeel(attr, value)
         return self
 
     def getfeel(self, attr, hard=False):
