@@ -8,7 +8,6 @@ __all__ = [
     'Bit',
     'Decimal',
     'Binary',
-    'LossyDecimal',
 ]
 
 import re
@@ -53,14 +52,6 @@ class Bit(Numeral):
 
 class Decimal(Int):
     def __init__(self, n):
-        digits = str(n)
-        for slot, digit in enumerate(reversed(digits)):
-            self.set(Digit[slot], int(digit))
-        self.set(Len, len(digits))
-
-
-class Decimal(Int):
-    def __init__(self, n):
         sign = +1 if n >= 0 else -1
         digits = str(abs(n))
         for slot, digit in enumerate(reversed(digits)):
@@ -74,15 +65,3 @@ class Binary(Int):
         digits = bin(n)[2:]
         for slot, bit in enumerate(reversed(digits)):
             self.set(Bit[slot], int(bit))
-
-
-class LossyDecimal(Int):
-    def __init__(self, n, num_digits=1):
-        sign = +1 if n >= 0 else -1
-        digits = str(abs(n))
-        for slot, digit in enumerate(digits):
-            if slot < num_digits:
-                print(f'self.set(Digit[{slot}], {digit})')
-                self.set(Digit[slot], int(digit))
-        self.set(Len, len(digits))
-        self.set(Sign, sign)
