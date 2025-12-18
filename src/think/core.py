@@ -136,34 +136,46 @@ class Type(type):
 
     def __call__(cls, arg, *args, **kwds):
 
-        if hasattr(cls, '__object__'):
-            object = cls.__object__(arg, *args, **kwds)
-        else:
-            object = arg
+        object = cls._coerce_object(arg, *args, **kwds)
 
-        try:    hash(object)
-        except: hashable = False
-        else:   hashable = True
-
-        if hashable:
-            if object in cls.memory:
-                return cls.memory[object]
+        if cls._is_hashable(object):
+            cached = cls._lookup_cached(object)
+            if cached is not None:
+                return cached
 
         self = cls.__new__(cls, object, *args, **kwds)
-
         self.__raw__ = arg
+
         if isinstance(self, cls):
             cls.__init__(self, object, *args, **kwds)
 
-        if hashable:
+        cls._register_instance(object, self)
+        return self
+
+    def _coerce_object(cls, arg, *args, **kwds):
+        if hasattr(cls, '__object__'):
+            return cls.__object__(arg, *args, **kwds)
+        return arg
+
+    def _is_hashable(cls, object):
+        try:
+            hash(object)
+        except Exception:
+            return False
+        return True
+
+    def _lookup_cached(cls, object):
+        return cls.memory.get(object)
+
+    def _register_instance(cls, object, self):
+        if cls._is_hashable(object):
             cls.memory[object] = self
 
         if cls.primary:
             for base in cls.bases:
-                if base is Object: continue
+                if base is Object:
+                    continue
                 self.set(IsInstance[base], True)
-        return self
-
 
     def mro(cls):
         return type.mro(cls)
