@@ -77,6 +77,12 @@ def learn_until_score(self, threshold=1.0, step_size=1e-2,
         # train with projections
         self.reset_wrong()
         t = self.think()
+        
+        (attrs, As), (values, vs) = get_data_for_self_training(self, only_train_wrong)
+        if not As:
+            LOG(f"{self!r}: nothing left to train")
+            return self
+        
         score = self.score()
         num_proj += 1
 
@@ -88,7 +94,6 @@ def learn_until_score(self, threshold=1.0, step_size=1e-2,
         if steps == 0:
             LOG(f"training needed for {self!r}, knowledge encoded {score:.2%}, "
                 f"will now train until {threshold:.2%}")
-            (attrs, As), (values, vs) = get_data_for_self_training(self, only_train_wrong)
             if optimizer is None:
                 optimizer = optimizers.adam
             opt_init, opt_update, get_params = optimizer(step_size)
