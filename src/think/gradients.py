@@ -9,13 +9,8 @@ __all__ = [
 
 import logging
 import jax.numpy as jnp
-from jax import vmap, value_and_grad
-try:
-    # jax optimizers are here in newer versions
-    from jax.example_libraries import optimizers
-except:
-    # jax optimizers are here in older versions
-    from jax.experimental import optimizers
+from jax import jit, vmap, value_and_grad
+from jax.example_libraries import optimizers
 
 from think import fast
 from think import slow
@@ -34,7 +29,7 @@ def loss_fn(t, As, vs):
     return loss
 
 
-grad_fn_self = value_and_grad(loss_fn)
+grad_fn_self = jit(value_and_grad(loss_fn))
 grad_fn_all  = value_and_grad(loss_fn, argnums=[0,1,2])
 
 
