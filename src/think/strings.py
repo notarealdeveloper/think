@@ -80,7 +80,7 @@ class Sentence(Tuple[Word]):
 
     @classmethod
     def __object__(cls, str):
-        words = super().__object__(re.findall(r'"|\'|\w+(?:\'\w+)?|\S', str))
+        words = re.findall(r'"|\'|\w+(?:\'\w+)?|\S', str)
         return tuple(words)
 
     def __repr__(self):
