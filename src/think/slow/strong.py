@@ -1,10 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 """ Strong typing. """
 
 __all__ = [
     'to_vector',
     'to_array',
+    'to_thought',
     'to_list_of_type',
     'is_jax_vector',
     'is_jax_array',
@@ -18,6 +19,7 @@ import jax.numpy as jnp
 
 import types
 import typing
+import is_instance
 from _collections_abc import dict_values
 
 jax_array_type = jax.Array
@@ -80,5 +82,4 @@ def least_base_type(*types):
     return next(iter(reduce(and_, (Counter(t.mro()) for t in types))))
 
 to_thought = to_vector # compatability
-__all__.append('to_thought')
 

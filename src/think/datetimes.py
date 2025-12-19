@@ -96,11 +96,11 @@ class Date(Str):
 
     @classmethod
     def parse_with_timestring(cls, input):
-        import timestring
-        date = timestring.Date(input)
+        import tmstr
+        date = tmstr.Date(input)
         output = cls.date_object_to_dict(date)
         if cls.suspicious_year(input, output):
-            # timestring gives the present year when no year is found
+            # gives the present year when no year is found
             output['year'] = None
             output['weekday'] = None
         return output

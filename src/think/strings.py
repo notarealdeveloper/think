@@ -8,6 +8,7 @@ __all__ = [
     'Sentence',
 ]
 
+import re
 import string
 
 from think import Bool, Str
@@ -79,11 +80,7 @@ class Sentence(Tuple[Word]):
 
     @classmethod
     def __object__(cls, str):
-        try:
-            import nltk
-            words = super().__object__(nltk.tokenize.word_tokenize(str))
-        except:
-            words = str.split(' ') # poor man's tokenizer, if we don't have nltk
+        words = super().__object__(re.findall(r'"|\'|\w+(?:\'\w+)?|\S', str))
         return tuple(words)
 
     def __repr__(self):
