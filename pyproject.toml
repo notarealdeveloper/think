@@ -1,6 +1,6 @@
 [project]
 name = "thnk"
-version = "0.0.2"
+version = "0.0.3"
 authors = [
     { name="Jason Wilkes", email="notarealdeveloper@gmail.com" },
 ]
@@ -19,3 +19,4 @@ develop = [
 
 [project.urls]
 source = "https://github.com/notarealdeveloper/think"
+download = "https://pypi.org/project/thnk/#files"
